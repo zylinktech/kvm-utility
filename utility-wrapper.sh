@@ -41,12 +41,13 @@ case "$OS_CHOICE" in
   *) echo "Invalid option. VM creation canceled." ; exit 1 ;;
 esac
 
-# Now, proceed with gathering other details
-FORM_OUTPUT=$(whiptail --title "Zylinktech VM Creation Utility" --form "Setup" 20 60 10 \
+# Gather VM configuration details such as VM Name, Hostname, RAM, CPU, and Disk Size
+FORM_OUTPUT=$(whiptail --title "Zylinktech VM Configuration" --form "Enter VM details:" 20 60 10 \
 "VM Name:" 1 1 "" 1 25 25 0 \
-"RAM (MB):" 2 1 "2048" 2 25 25 0 \
-"CPU Cores:" 3 1 "2" 3 25 25 0 \
-"Disk Size (GB):" 4 1 "20" 4 25 25 0 3>&1 1>&2 2>&3)
+"Hostname:" 2 1 "" 2 25 25 0 \
+"RAM (MB):" 3 1 "2048" 3 25 25 0 \
+"CPU Cores:" 4 1 "2" 4 25 25 0 \
+"Disk Size (GB):" 5 1 "20" 5 25 25 0 3>&1 1>&2 2>&3)
 
 # If the user cancels the form, exit the script
 if [ $? -ne 0 ]; then
@@ -55,23 +56,24 @@ if [ $? -ne 0 ]; then
 fi
 
 # Read the form output into separate variables
-IFS=$'\n' read -r VM_NAME RAM CPU DISK_SIZE <<< "$FORM_OUTPUT"
+IFS=$'\n' read -r VM_NAME HOSTNAME RAM CPU DISK_SIZE <<< "$FORM_OUTPUT"
 
 # Validate required fields
-if [[ -z "$VM_NAME" || -z "$RAM" || -z "$CPU" || -z "$DISK_SIZE" ]]; then
+if [[ -z "$VM_NAME" || -z "$HOSTNAME" || -z "$RAM" || -z "$CPU" || -z "$DISK_SIZE" ]]; then
   whiptail --title "Error" --msgbox "One or more required fields are missing. VM creation canceled." 8 60
   exit 1
 fi
 
 # Print the values to ensure we captured them correctly (debugging)
 echo "VM Name: $VM_NAME"
+echo "Hostname: $HOSTNAME"
 echo "RAM: $RAM MB"
 echo "CPU Cores: $CPU"
 echo "Disk Size: $DISK_SIZE GB"
 echo "ISO URL: $ISO_URL"
 
 # Confirm the details before proceeding
-CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_URL\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
+CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nHostname: $HOSTNAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_URL\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
 
 if [ $? -ne 0 ]; then
   echo "VM creation canceled."
@@ -88,7 +90,8 @@ sudo virt-install \
   --network network=default \
   --os-variant ubuntu20.04 \
   --graphics vnc \
-  --console pty,target_type=serial
+  --console pty,target_type=serial \
+  --hostname "$HOSTNAME"
 
 # Check if the VM creation was successful and fetch the IP address
 if [ $? -eq 0 ]; then
@@ -96,7 +99,7 @@ if [ $? -eq 0 ]; then
   if [ -z "$IP_ADDR" ]; then
     IP_ADDR="Not available (VM might be starting up)"
   fi
-  whiptail --title "Success" --msgbox "VM $VM_NAME created successfully!\n\nIP Address: $IP_ADDR" 10 60
+  whiptail --title "Success" --msgbox "VM $VM_NAME created successfully!\n\nHostname: $HOSTNAME\nIP Address: $IP_ADDR" 10 60
 else
   whiptail --title "Error" --msgbox "Failed to create VM $VM_NAME." 10 60
 fi
