@@ -1,5 +1,13 @@
 #!/bin/bash
 
+ISO_LIST_FILE="os-types"
+
+# Check if the ISO list file exists
+if [[ ! -f "$ISO_LIST_FILE" ]]; then
+  echo "ISO list file $ISO_LIST_FILE not found. Please create the file with the ISO links."
+  exit 1
+fi
+
 # Check if whiptail is installed
 if ! command -v whiptail >/dev/null 2>&1; then
   echo "whiptail is not installed. Install it using: sudo apt install whiptail"
@@ -15,6 +23,30 @@ fi
 # Fullscreen window using clear
 clear
 
+# Read ISO list from the file
+ISO_MENU=""
+while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
+  ISO_MENU+="$OPTION_NUMBER \"$DESCRIPTION\" "
+done < "$ISO_LIST_FILE"
+
+# Show ISO selection menu
+ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' 15 60 6 $ISO_MENU 3>&1 1>&2 2>&3)
+
+# If user cancels the menu, exit the script
+if [ $? -ne 0 ]; then
+  echo "VM creation canceled."
+  exit 1
+fi
+
+# Determine the ISO URL based on the selected option
+ISO_URL=$(awk -F'|' -v choice="$ISO_CHOICE" '$1 == choice { print $3 }' "$ISO_LIST_FILE")
+
+# Make sure we have a valid ISO URL
+if [[ -z "$ISO_URL" ]]; then
+  whiptail --title "Error" --msgbox "Invalid ISO selection. VM creation canceled." 8 60
+  exit 1
+fi
+
 # Menu to let user select what they want to configure
 CONFIG_OPTIONS=$(whiptail --title "VM Configuration Menu" --checklist \
 "Select the configuration options you want to set:" 20 60 10 \
@@ -22,8 +54,7 @@ CONFIG_OPTIONS=$(whiptail --title "VM Configuration Menu" --checklist \
 "Hostname" "Set the hostname for the VM." ON \
 "RAM" "Set the RAM size for the VM." ON \
 "CPU Cores" "Set the number of CPU cores." ON \
-"Disk Size" "Set the disk size (GB)." ON \
-"ISO" "Choose an ISO image for installation." ON 3>&1 1>&2 2>&3)
+"Disk Size" "Set the disk size (GB)." ON 3>&1 1>&2 2>&3)
 
 # If user cancels the menu
 if [ $? -ne 0 ]; then
@@ -37,7 +68,6 @@ HOSTNAME=""
 RAM="2048"
 CPU="2"
 DISK_SIZE="20"
-ISO_URL=""
 
 # Configure based on user selection
 if [[ $CONFIG_OPTIONS == *"VM Name"* ]]; then
@@ -60,30 +90,9 @@ if [[ $CONFIG_OPTIONS == *"Disk Size"* ]]; then
   DISK_SIZE=$(whiptail --inputbox "Enter the Disk size (in GB):" 10 60 "20" 3>&1 1>&2 2>&3)
 fi
 
-# ISO selection menu
-if [[ $CONFIG_OPTIONS == *"ISO"* ]]; then
-  ISO_CHOICE=$(whiptail --title "Choose ISO" --menu "Select the operating system ISO:" 15 60 6 \
-  "1" "Ubuntu Desktop 22.04" \
-  "2" "Ubuntu Server 22.04" \
-  "3" "CentOS 8" \
-  "4" "Fedora 36" \
-  "5" "Debian 11" \
-  "6" "Alpine Linux" 3>&1 1>&2 2>&3)
-
-  case "$ISO_CHOICE" in
-    1) ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04.1-desktop-amd64.iso" ;;
-    2) ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04-live-server-amd64.iso" ;;
-    3) ISO_URL="http://mirror.centos.org/centos/8-stream/isos/x86_64/CentOS-Stream-8-x86_64-20220616-dvd1.iso" ;;
-    4) ISO_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/36/Workstation/x86_64/iso/Fedora-Workstation-Live-x86_64-36-1.5.iso" ;;
-    5) ISO_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.5.0-amd64-netinst.iso" ;;
-    6) ISO_URL="https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-standard-3.16.0-x86_64.iso" ;;
-    *) echo "Invalid option. VM creation canceled." ; exit 1 ;;
-  esac
-fi
-
 # Make sure mandatory fields are filled
-if [[ -z "$VM_NAME" || -z "$ISO_URL" ]]; then
-  whiptail --title "Error" --msgbox "VM Name and ISO must be selected. VM creation canceled." 8 60
+if [[ -z "$VM_NAME" ]]; then
+  whiptail --title "Error" --msgbox "VM Name is required. VM creation canceled." 8 60
   exit 1
 fi
 
