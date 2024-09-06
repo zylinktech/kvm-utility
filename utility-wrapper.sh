@@ -15,8 +15,8 @@ fi
 # Fullscreen window using clear
 clear
 
-# Show a single form where users can input all options in one go
-FORM_OUTPUT=$(whiptail --title "zylinktech virtual machine utility" --form "VM Setup:" 20 60 10 \
+# Show a single form to capture all inputs at once
+FORM_OUTPUT=$(whiptail --title "zylinktech vm creation utility" --form "Setup" 20 60 10 \
 "VM Name:" 1 1 "" 1 25 25 0 \
 "RAM (MB):" 2 1 "2048" 2 25 25 0 \
 "CPU Cores:" 3 1 "2" 3 25 25 0 \
@@ -26,36 +26,37 @@ FORM_OUTPUT=$(whiptail --title "zylinktech virtual machine utility" --form "VM S
 "Subnet Mask (Optional):" 7 1 "" 7 25 25 0 \
 "Gateway IP (Optional):" 8 1 "" 8 25 25 0 3>&1 1>&2 2>&3)
 
-# If the user cancels the form
+# If the user cancels the form, exit the script
 if [ $? -ne 0 ]; then
   echo "VM creation canceled."
   exit 1
 fi
 
-# Parse form output using read
+# Read the form output into separate variables
 IFS=$'\n' read -r VM_NAME RAM CPU DISK_SIZE ISO_URL STATIC_IP SUBNET_MASK GATEWAY <<< "$FORM_OUTPUT"
 
-# Check the parsed variables
+# Validate required fields
 if [[ -z "$VM_NAME" || -z "$RAM" || -z "$CPU" || -z "$DISK_SIZE" || -z "$ISO_URL" ]]; then
-  echo "One or more required fields are missing. VM creation canceled."
+  whiptail --title "Error" --msgbox "One or more required fields are missing. VM creation canceled." 8 60
   exit 1
 fi
 
-# If static IP details were entered, configure the network with a static IP
-if [ -n "$STATIC_IP" ] && [ -n "$SUBNET_MASK" ] && [ -n "$GATEWAY" ]; then
+# Determine network configuration based on whether a static IP is provided
+if [[ -n "$STATIC_IP" && -n "$SUBNET_MASK" && -n "$GATEWAY" ]]; then
   NETWORK_CONFIG="--network network=default,model=virtio,mac=RANDOM,ip=$STATIC_IP/$SUBNET_MASK,gateway=$GATEWAY"
 else
   NETWORK_CONFIG="--network network=default"
 fi
 
-# Confirm the details
-CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm details:\n\nVM Name: $VM_NAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO URL: $ISO_URL\nStatic IP: ${STATIC_IP:-DHCP}\n\nDo you want to proceed?" 20 60)
+# Confirm the details before proceeding
+CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO URL: $ISO_URL\nStatic IP: ${STATIC_IP:-DHCP}\n\nDo you want to proceed?" 15 60)
+
 if [ $? -ne 0 ]; then
   echo "VM creation canceled."
   exit 1
 fi
 
-# Create the VM using virt-install
+# Execute the virt-install command to create the VM
 sudo virt-install \
   --name "$VM_NAME" \
   --ram "$RAM" \
@@ -67,7 +68,7 @@ sudo virt-install \
   --graphics vnc \
   --console pty,target_type=serial
 
-# Check if the VM creation was successful
+# Check if the VM creation was successful and fetch the IP address
 if [ $? -eq 0 ]; then
   IP_ADDR=$(sudo virsh domifaddr "$VM_NAME" | grep ipv4 | awk '{print $4}' | cut -d'/' -f1)
   if [ -z "$IP_ADDR" ]; then
