@@ -29,8 +29,11 @@ while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
   ISO_MENU+="$OPTION_NUMBER \"$DESCRIPTION\" "
 done < "$ISO_LIST_FILE"
 
+# Set the menu height to accommodate the number of options (20 options in this case)
+ISO_MENU_HEIGHT=25
+
 # Show ISO selection menu
-ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' 15 60 6 $ISO_MENU 3>&1 1>&2 2>&3)
+ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 20 $ISO_MENU 3>&1 1>&2 2>&3)
 
 # If user cancels the menu, exit the script
 if [ $? -ne 0 ]; then
