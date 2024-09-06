@@ -23,17 +23,40 @@ fi
 # Fullscreen window using clear
 clear
 
-# Read ISO list from the file
+# Prompt the user for a search term
+SEARCH_TERM=$(whiptail --inputbox "Enter a search term to filter ISO options (e.g., Ubuntu, Server, Fedora):" 10 60 3>&1 1>&2 2>&3)
+
+# If user cancels the search
+if [ $? -ne 0 ]; then
+  echo "VM creation canceled."
+  exit 1
+fi
+
+# Check if search term is empty
+if [[ -z "$SEARCH_TERM" ]]; then
+  echo "No search term provided. VM creation canceled."
+  exit 1
+fi
+
+# Filter the ISO list based on the search term
 ISO_MENU=""
 while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
-  ISO_MENU+="$OPTION_NUMBER \"$DESCRIPTION\" "
+  if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
+    ISO_MENU+="$OPTION_NUMBER \"$DESCRIPTION\" "
+  fi
 done < "$ISO_LIST_FILE"
 
-# Set the menu height to accommodate the number of options (20 options in this case)
-ISO_MENU_HEIGHT=25
+# Check if there are any matching results
+if [[ -z "$ISO_MENU" ]]; then
+  whiptail --title "No Results" --msgbox "No ISOs matched your search term '$SEARCH_TERM'." 10 60
+  exit 1
+fi
 
-# Show ISO selection menu
-ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 20 $ISO_MENU 3>&1 1>&2 2>&3)
+# Set the menu height dynamically based on the number of options
+ISO_MENU_HEIGHT=$(echo "$ISO_MENU" | wc -l)
+
+# Show filtered ISO selection menu
+ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
 
 # If user cancels the menu, exit the script
 if [ $? -ne 0 ]; then
@@ -50,7 +73,7 @@ if [[ -z "$ISO_URL" ]]; then
   exit 1
 fi
 
-# Menu to let user select what they want to configure
+# Proceed with the rest of the VM creation process (prompting for VM Name, RAM, etc.)
 CONFIG_OPTIONS=$(whiptail --title "VM Configuration Menu" --checklist \
 "Select the configuration options you want to set:" 20 60 10 \
 "VM Name" "Set the name of the VM." ON \
