@@ -23,55 +23,69 @@ fi
 # Fullscreen window using clear
 clear
 
-# Prompt the user for a search term
-SEARCH_TERM=$(whiptail --inputbox "Enter a search term to filter ISO options (e.g., Ubuntu, Server, Fedora):" 10 60 3>&1 1>&2 2>&3)
+# Loop until user successfully selects an ISO or cancels
+while true; do
+  # Prompt the user for a search term
+  SEARCH_TERM=$(whiptail --inputbox "Enter a search term to filter ISO options (e.g., Ubuntu, Server, Fedora):" 10 60 3>&1 1>&2 2>&3)
 
-# If user cancels the search
-if [ $? -ne 0 ]; then
-  echo "VM creation canceled."
-  exit 1
-fi
-
-# Check if search term is empty
-if [[ -z "$SEARCH_TERM" ]]; then
-  echo "No search term provided. VM creation canceled."
-  exit 1
-fi
-
-# Filter the ISO list based on the search term
-ISO_MENU=""
-while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
-  if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
-    ISO_MENU+="$OPTION_NUMBER \"$DESCRIPTION\" "
+  # If user cancels the search
+  if [ $? -ne 0 ]; then
+    echo "VM creation canceled."
+    exit 1
   fi
-done < "$ISO_LIST_FILE"
 
-# Check if there are any matching results
-if [[ -z "$ISO_MENU" ]]; then
-  whiptail --title "No Results" --msgbox "No ISOs matched your search term '$SEARCH_TERM'." 10 60
-  exit 1
-fi
+  # Check if search term is empty
+  if [[ -z "$SEARCH_TERM" ]]; then
+    whiptail --title "Error" --msgbox "No search term provided. Please try again." 8 60
+    continue
+  fi
 
-# Set the menu height dynamically based on the number of options
-ISO_MENU_HEIGHT=$(echo "$ISO_MENU" | wc -l)
+  # Filter the ISO list based on the search term
+  ISO_MENU=""
+  while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
+    if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
+      ISO_MENU+="$OPTION_NUMBER \"$DESCRIPTION\" "
+    fi
+  done < "$ISO_LIST_FILE"
 
-# Show filtered ISO selection menu
-ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
+  # Add a "Go Back" option to the menu
+  ISO_MENU+="GoBack \"Go back to search\" "
 
-# If user cancels the menu, exit the script
-if [ $? -ne 0 ]; then
-  echo "VM creation canceled."
-  exit 1
-fi
+  # Check if there are any matching results
+  if [[ -z "$ISO_MENU" ]]; then
+    whiptail --title "No Results" --msgbox "No ISOs matched your search term '$SEARCH_TERM'." 10 60
+    continue
+  fi
 
-# Determine the ISO URL based on the selected option
-ISO_URL=$(awk -F'|' -v choice="$ISO_CHOICE" '$1 == choice { print $3 }' "$ISO_LIST_FILE")
+  # Set the menu height dynamically based on the number of options
+  ISO_MENU_HEIGHT=$(echo "$ISO_MENU" | wc -l)
 
-# Make sure we have a valid ISO URL
-if [[ -z "$ISO_URL" ]]; then
-  whiptail --title "Error" --msgbox "Invalid ISO selection. VM creation canceled." 8 60
-  exit 1
-fi
+  # Show filtered ISO selection menu
+  ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
+
+  # If user cancels the menu, exit the script
+  if [ $? -ne 0 ]; then
+    echo "VM creation canceled."
+    exit 1
+  fi
+
+  # Handle "Go Back" option
+  if [[ "$ISO_CHOICE" == "GoBack" ]]; then
+    continue  # Go back to the search input prompt
+  fi
+
+  # Determine the ISO URL based on the selected option
+  ISO_URL=$(awk -F'|' -v choice="$ISO_CHOICE" '$1 == choice { print $3 }' "$ISO_LIST_FILE")
+
+  # Make sure we have a valid ISO URL
+  if [[ -z "$ISO_URL" ]]; then
+    whiptail --title "Error" --msgbox "Invalid ISO selection. VM creation canceled." 8 60
+    exit 1
+  fi
+
+  # Break the loop if a valid ISO is selected
+  break
+done
 
 # Proceed with the rest of the VM creation process (prompting for VM Name, RAM, etc.)
 CONFIG_OPTIONS=$(whiptail --title "VM Configuration Menu" --checklist \
