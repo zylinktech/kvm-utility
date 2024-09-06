@@ -27,7 +27,7 @@ clear
 # Loop until user successfully selects an ISO or cancels
 while true; do
   # Prompt the user for a search term
-  SEARCH_TERM=$(whiptail --inputbox "Enter a search term to filter ISO options (leave blank to show all ISOs):" 10 60 3>&1 1>&2 2>&3)
+  SEARCH_TERM=$(whiptail --inputbox "Search ISO (leave blank to show all):" 10 60 3>&1 1>&2 2>&3)
 
   # If user cancels the search
   if [ $? -ne 0 ]; then
@@ -81,17 +81,17 @@ while true; do
 
     # Add navigation options
     if [[ $PAGE -gt 1 ]]; then
-      ISO_MENU+="Previous \"Previous Page\" "
+      ISO_MENU+="< \"Previous Page\" "
     fi
     if [[ $PAGE -lt $TOTAL_PAGES ]]; then
-      ISO_MENU+="Next \"Next Page\" "
+      ISO_MENU+="> \"Next Page\" "
     fi
 
     # Set the menu height dynamically based on the number of options
     ISO_MENU_HEIGHT=$((PAGE_SIZE + 3))
 
     # Show paginated ISO selection menu with numbered options
-    ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
+    ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the guest OS:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
 
     # If user cancels the menu, exit the script
     if [ $? -ne 0 ]; then
@@ -114,10 +114,10 @@ while true; do
     ISO_NAME=$(basename "$ISO_URL")
 
     # Provide a menu for proceeding or going back
-    ACTION=$(whiptail --title "What next?" --menu "Select what you want to do next:" 15 60 3 \
-    "Proceed" "Proceed with this ISO" \
-    "Go Back" "Search again or change ISO" \
-    "Cancel" "Cancel the VM creation" 3>&1 1>&2 2>&3)
+    ACTION=$(whiptail --title "ISO Options" --menu "Confirm selection?" 15 60 3 \
+    "Proceed  -  " "Proceed with this ISO" \
+    "Go Back  -  " "Search again or change ISO" \
+    "Cancel  -  " "Cancel the VM creation" 3>&1 1>&2 2>&3)
 
     # Handle the actions
     case "$ACTION" in
@@ -136,8 +136,8 @@ while true; do
 done
 
 # Proceed with the rest of the VM creation process (prompting for VM Name, RAM, etc.)
-CONFIG_OPTIONS=$(whiptail --title "VM Configuration Menu" --checklist \
-"Select the configuration options you want to set:" 20 60 10 \
+CONFIG_OPTIONS=$(whiptail --title "zylinktech kvm utility" --checklist \
+"VM Configuration" 20 60 10 \
 "VM Name" "Set the name of the VM." ON \
 "Hostname" "Set the hostname for the VM." ON \
 "RAM" "Set the RAM size for the VM." ON \
