@@ -15,65 +15,80 @@ fi
 # Fullscreen window using clear
 clear
 
-# Show a dropdown menu to select the VM OS/ISO source
-OS_CHOICE=$(whiptail --title "Choose OS ISO" --menu "Select the operating system to install:" 15 60 6 \
-"1" "Ubuntu Desktop 22.04" \
-"2" "Ubuntu Server 22.04" \
-"3" "CentOS 8" \
-"4" "Fedora 36" \
-"5" "Debian 11" \
-"6" "Alpine Linux" 3>&1 1>&2 2>&3)
+# Menu to let user select what they want to configure
+CONFIG_OPTIONS=$(whiptail --title "VM Configuration Menu" --checklist \
+"Select the configuration options you want to set:" 20 60 10 \
+"VM Name" "Set the name of the VM." ON \
+"Hostname" "Set the hostname for the VM." ON \
+"RAM" "Set the RAM size for the VM." ON \
+"CPU Cores" "Set the number of CPU cores." ON \
+"Disk Size" "Set the disk size (GB)." ON \
+"ISO" "Choose an ISO image for installation." ON 3>&1 1>&2 2>&3)
 
-# If the user cancels the menu, exit the script
+# If user cancels the menu
 if [ $? -ne 0 ]; then
   echo "VM creation canceled."
   exit 1
 fi
 
-# Determine the ISO URL based on the selected option
-case "$OS_CHOICE" in
-  1) ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04.1-desktop-amd64.iso" ;;
-  2) ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04-live-server-amd64.iso" ;;
-  3) ISO_URL="http://mirror.centos.org/centos/8-stream/isos/x86_64/CentOS-Stream-8-x86_64-20220616-dvd1.iso" ;;
-  4) ISO_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/36/Workstation/x86_64/iso/Fedora-Workstation-Live-x86_64-36-1.5.iso" ;;
-  5) ISO_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.5.0-amd64-netinst.iso" ;;
-  6) ISO_URL="https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-standard-3.16.0-x86_64.iso" ;;
-  *) echo "Invalid option. VM creation canceled." ; exit 1 ;;
-esac
+# Default values if not selected
+VM_NAME=""
+HOSTNAME=""
+RAM="2048"
+CPU="2"
+DISK_SIZE="20"
+ISO_URL=""
 
-# Gather VM configuration details such as VM Name, Hostname, RAM, CPU, and Disk Size
-FORM_OUTPUT=$(whiptail --title "Zylinktech VM Configuration" --form "Enter VM details:" 20 60 10 \
-"VM Name:" 1 1 "" 1 25 25 0 \
-"Hostname:" 2 1 "" 2 25 25 0 \
-"RAM (MB):" 3 1 "2048" 3 25 25 0 \
-"CPU Cores:" 4 1 "2" 4 25 25 0 \
-"Disk Size (GB):" 5 1 "20" 5 25 25 0 3>&1 1>&2 2>&3)
-
-# If the user cancels the form, exit the script
-if [ $? -ne 0 ]; then
-  echo "VM creation canceled."
-  exit 1
+# Configure based on user selection
+if [[ $CONFIG_OPTIONS == *"VM Name"* ]]; then
+  VM_NAME=$(whiptail --inputbox "Enter the VM name:" 10 60 3>&1 1>&2 2>&3)
 fi
 
-# Read the form output into separate variables
-IFS=$'\n' read -r VM_NAME HOSTNAME RAM CPU DISK_SIZE <<< "$FORM_OUTPUT"
-
-# Validate required fields
-if [[ -z "$VM_NAME" || -z "$HOSTNAME" || -z "$RAM" || -z "$CPU" || -z "$DISK_SIZE" ]]; then
-  whiptail --title "Error" --msgbox "One or more required fields are missing. VM creation canceled." 8 60
-  exit 1
+if [[ $CONFIG_OPTIONS == *"Hostname"* ]]; then
+  HOSTNAME=$(whiptail --inputbox "Enter the Hostname:" 10 60 3>&1 1>&2 2>&3)
 fi
 
-# Print the values to ensure we captured them correctly (debugging)
-echo "VM Name: $VM_NAME"
-echo "Hostname: $HOSTNAME"
-echo "RAM: $RAM MB"
-echo "CPU Cores: $CPU"
-echo "Disk Size: $DISK_SIZE GB"
-echo "ISO URL: $ISO_URL"
+if [[ $CONFIG_OPTIONS == *"RAM"* ]]; then
+  RAM=$(whiptail --inputbox "Enter the RAM size (in MB):" 10 60 "2048" 3>&1 1>&2 2>&3)
+fi
+
+if [[ $CONFIG_OPTIONS == *"CPU Cores"* ]]; then
+  CPU=$(whiptail --inputbox "Enter the number of CPU cores:" 10 60 "2" 3>&1 1>&2 2>&3)
+fi
+
+if [[ $CONFIG_OPTIONS == *"Disk Size"* ]]; then
+  DISK_SIZE=$(whiptail --inputbox "Enter the Disk size (in GB):" 10 60 "20" 3>&1 1>&2 2>&3)
+fi
+
+# ISO selection menu
+if [[ $CONFIG_OPTIONS == *"ISO"* ]]; then
+  ISO_CHOICE=$(whiptail --title "Choose ISO" --menu "Select the operating system ISO:" 15 60 6 \
+  "1" "Ubuntu Desktop 22.04" \
+  "2" "Ubuntu Server 22.04" \
+  "3" "CentOS 8" \
+  "4" "Fedora 36" \
+  "5" "Debian 11" \
+  "6" "Alpine Linux" 3>&1 1>&2 2>&3)
+
+  case "$ISO_CHOICE" in
+    1) ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04.1-desktop-amd64.iso" ;;
+    2) ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04-live-server-amd64.iso" ;;
+    3) ISO_URL="http://mirror.centos.org/centos/8-stream/isos/x86_64/CentOS-Stream-8-x86_64-20220616-dvd1.iso" ;;
+    4) ISO_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/36/Workstation/x86_64/iso/Fedora-Workstation-Live-x86_64-36-1.5.iso" ;;
+    5) ISO_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.5.0-amd64-netinst.iso" ;;
+    6) ISO_URL="https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-standard-3.16.0-x86_64.iso" ;;
+    *) echo "Invalid option. VM creation canceled." ; exit 1 ;;
+  esac
+fi
+
+# Make sure mandatory fields are filled
+if [[ -z "$VM_NAME" || -z "$ISO_URL" ]]; then
+  whiptail --title "Error" --msgbox "VM Name and ISO must be selected. VM creation canceled." 8 60
+  exit 1
+fi
 
 # Confirm the details before proceeding
-CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nHostname: $HOSTNAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_URL\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
+CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nHostname: ${HOSTNAME:-Not set}\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_URL\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
 
 if [ $? -ne 0 ]; then
   echo "VM creation canceled."
@@ -99,7 +114,7 @@ if [ $? -eq 0 ]; then
   if [ -z "$IP_ADDR" ]; then
     IP_ADDR="Not available (VM might be starting up)"
   fi
-  whiptail --title "Success" --msgbox "VM $VM_NAME created successfully!\n\nHostname: $HOSTNAME\nIP Address: $IP_ADDR" 10 60
+  whiptail --title "Success" --msgbox "VM $VM_NAME created successfully!\n\nHostname: ${HOSTNAME:-Not set}\nIP Address: $IP_ADDR" 10 60
 else
   whiptail --title "Error" --msgbox "Failed to create VM $VM_NAME." 10 60
 fi
