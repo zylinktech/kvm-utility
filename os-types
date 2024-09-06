@@ -2,5 +2,31 @@
 2|Ubuntu Server 22.04|https://releases.ubuntu.com/22.04/ubuntu-22.04-live-server-amd64.iso
 3|CentOS 8 Stream|http://mirror.centos.org/centos/8-stream/isos/x86_64/CentOS-Stream-8-x86_64-20220616-dvd1.iso
 4|Fedora 36 Workstation|https://download.fedoraproject.org/pub/fedora/linux/releases/36/Workstation/x86_64/iso/Fedora-Workstation-Live-x86_64-36-1.5.iso
-5|Debian 11|https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.5.0-amd64-netinst.iso
-6|Alpine Linux 3.16|https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-standard-3.16.0-x86_64.iso
+5|Fedora Server 36|https://download.fedoraproject.org/pub/fedora/linux/releases/36/Server/x86_64/iso/Fedora-Server-dvd-x86_64-36-1.5.iso
+6|Debian 11.5|https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-11.5.0-amd64-netinst.iso
+7|Alpine Linux 3.16|https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-standard-3.16.0-x86_64.iso
+8|Arch Linux|https://mirror.rackspace.com/archlinux/iso/latest/archlinux-x86_64.iso
+9|OpenSUSE Leap 15.4|https://download.opensuse.org/distribution/leap/15.4/iso/openSUSE-Leap-15.4-DVD-x86_64.iso
+10|Kali Linux 2022.3|https://cdimage.kali.org/kali-2022.3/kali-linux-2022.3-live-amd64.iso
+11|Manjaro Linux 21.3.7|https://download.manjaro.org/gnome/21.3.7/manjaro-gnome-21.3.7-220816-linux515.iso
+12|Linux Mint 21|https://mirrors.edge.kernel.org/linuxmint/stable/21/linuxmint-21-cinnamon-64bit.iso
+13|Zorin OS 16.1|https://zorin-os.com/download/16.1/Zorin-OS-16.1-Core-64-bit.iso
+14|Pop!_OS 22.04 LTS|https://pop-iso.sfo2.cdn.digitaloceanspaces.com/22.04/amd64/intel/4/pop-os_22.04_amd64_intel_1.iso
+15|Rocky Linux 9|https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9.0-x86_64-dvd.iso
+16|Slackware 15.0|https://mirrors.slackware.com/slackware/slackware64-15.0-iso/slackware64-15.0-install-dvd.iso
+17|Elementary OS 6.1|https://elementaryos.is/download
+18|MX Linux 21.1|https://sourceforge.net/projects/mx-linux/files/Final/Xfce/MX-21.1_x64.iso
+19|Void Linux|https://alpha.de.repo.voidlinux.org/live/current/void-live-x86_64-20210930.iso
+20|Puppy Linux BionicPup 64|https://distro.ibiblio.org/puppylinux/puppy-bionicpup64/bionicpup64-8.0-uefi.iso
+21|Deepin 20.6|https://cdimage.deepin.com/releases/20.6/deepin-desktop-community-20.6-amd64.iso
+22|Parrot OS 5.1 Security Edition|https://download.parrot.sh/parrot/iso/5.1/Parrot-security-5.1_amd64.iso
+23|Red Hat Enterprise Linux 9|https://access.redhat.com/downloads/content/479/ver=/rhel---9/x86_64/product-software
+24|Oracle Linux 9|https://yum.oracle.com/ISOS/OracleLinux/OL9/u0/x86_64/OracleLinux-R9-U0-x86_64-dvd.iso
+25|FreeBSD 13.1|https://download.freebsd.org/ftp/releases/ISO-IMAGES/13.1/FreeBSD-13.1-RELEASE-amd64-disc1.iso
+26|NetBSD 9.3|https://cdn.netbsd.org/pub/NetBSD/NetBSD-9.3/amd64/installation/cdrom/netbsd-9.3-amd64.iso
+27|OpenBSD 7.1|https://cdn.openbsd.org/pub/OpenBSD/7.1/amd64/install71.iso
+28|Tiny Core Linux 13.1|http://tinycorelinux.net/13.x/x86_64/release/TinyCorePure64-13.1.iso
+29|AlmaLinux 9.0|https://repo.almalinux.org/almalinux/9/isos/x86_64/AlmaLinux-9.0-x86_64-dvd.iso
+30|Garuda Linux KDE Dragonized|https://builds.garudalinux.org/iso/garuda/kde-dr460nized/230121/garuda-dr460nized-linux-zen-230121.iso
+31|Sparky Linux 7|https://sparkylinux.org/download/rolling/sparky-rolling-x86_64-lxqt.iso
+32|Clear Linux 36490|https://cdn.download.clearlinux.org/releases/36490/clear/clear-36490-live-desktop.iso
