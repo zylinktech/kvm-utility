@@ -48,9 +48,6 @@ while true; do
     fi
   done < "$ISO_LIST_FILE"
 
-  # Add a "Go Back" option to the menu
-  ISO_MENU+="GoBack \"Go back to search\" "
-
   # Check if there are any matching results
   if [[ -z "$ISO_MENU" ]]; then
     whiptail --title "No Results" --msgbox "No ISOs matched your search term '$SEARCH_TERM'." 10 60
@@ -69,11 +66,6 @@ while true; do
     exit 1
   fi
 
-  # Handle "Go Back" option
-  if [[ "$ISO_CHOICE" == "GoBack" ]]; then
-    continue  # Go back to the search input prompt
-  fi
-
   # Determine the ISO URL based on the selected option
   ISO_URL=$(awk -F'|' -v choice="$ISO_CHOICE" '$1 == choice { print $3 }' "$ISO_LIST_FILE")
 
@@ -83,8 +75,25 @@ while true; do
     exit 1
   fi
 
-  # Break the loop if a valid ISO is selected
-  break
+  # Provide a menu for proceeding or going back
+  ACTION=$(whiptail --title "What next?" --menu "Select what you want to do next:" 15 60 3 \
+  "Proceed" "Proceed with this ISO" \
+  "Go Back" "Search again or change ISO" \
+  "Cancel" "Cancel the VM creation" 3>&1 1>&2 2>&3)
+
+  # Handle the actions
+  case "$ACTION" in
+    "Proceed")
+      break  # Proceed with the selected ISO
+      ;;
+    "Go Back")
+      continue  # Go back to the search input prompt
+      ;;
+    "Cancel")
+      echo "VM creation canceled."
+      exit 1
+      ;;
+  esac
 done
 
 # Proceed with the rest of the VM creation process (prompting for VM Name, RAM, etc.)
