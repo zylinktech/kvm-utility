@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ISO_LIST_FILE="os-types"
+ISO_SAVE_DIR="/var/lib/libvirt/images/isos/"
 
 # Check if the ISO list file exists
 if [[ ! -f "$ISO_LIST_FILE" ]]; then
@@ -19,6 +20,9 @@ if ! command -v virt-install >/dev/null 2>&1; then
   echo "virt-install is not installed. Install it using: sudo apt install virt-manager"
   exit 1
 fi
+
+# Create ISO save directory if it doesn't exist
+mkdir -p "$ISO_SAVE_DIR"
 
 # Fullscreen window using clear
 clear
@@ -40,11 +44,13 @@ while true; do
     continue
   fi
 
-  # Filter the ISO list based on the search term
+  # Filter the ISO list based on the search term and create a numbered menu
   ISO_MENU=""
+  COUNT=1
   while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
     if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
-      ISO_MENU+="$OPTION_NUMBER \"$DESCRIPTION\" "
+      ISO_MENU+="$COUNT \"$DESCRIPTION\" "
+      COUNT=$((COUNT + 1))
     fi
   done < "$ISO_LIST_FILE"
 
@@ -57,7 +63,7 @@ while true; do
   # Set the menu height dynamically based on the number of options
   ISO_MENU_HEIGHT=$(echo "$ISO_MENU" | wc -l)
 
-  # Show filtered ISO selection menu
+  # Show filtered ISO selection menu with numbered options
   ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
 
   # If user cancels the menu, exit the script
@@ -66,13 +72,35 @@ while true; do
     exit 1
   fi
 
-  # Determine the ISO URL based on the selected option
-  ISO_URL=$(awk -F'|' -v choice="$ISO_CHOICE" '$1 == choice { print $3 }' "$ISO_LIST_FILE")
+  # Find the corresponding ISO URL based on the selected number
+  COUNT=1
+  while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
+    if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
+      if [[ "$COUNT" == "$ISO_CHOICE" ]]; then
+        ISO_URL="$URL"
+        ISO_NAME=$(basename "$ISO_URL")
+        break
+      fi
+      COUNT=$((COUNT + 1))
+    fi
+  done < "$ISO_LIST_FILE"
 
   # Make sure we have a valid ISO URL
   if [[ -z "$ISO_URL" ]]; then
     whiptail --title "Error" --msgbox "Invalid ISO selection. VM creation canceled." 8 60
     exit 1
+  fi
+
+  # Check if the ISO is already downloaded
+  if [[ ! -f "$ISO_SAVE_DIR$ISO_NAME" ]]; then
+    whiptail --title "Downloading ISO" --msgbox "The selected ISO is not found locally. It will now be downloaded." 10 60
+    wget -O "$ISO_SAVE_DIR$ISO_NAME" "$ISO_URL"
+    if [ $? -ne 0 ]; then
+      whiptail --title "Error" --msgbox "Failed to download the ISO. VM creation canceled." 8 60
+      exit 1
+    fi
+  else
+    whiptail --title "ISO Found" --msgbox "The selected ISO is already downloaded locally." 10 60
   fi
 
   # Provide a menu for proceeding or going back
@@ -84,6 +112,7 @@ while true; do
   # Handle the actions
   case "$ACTION" in
     "Proceed")
+      ISO_PATH="$ISO_SAVE_DIR$ISO_NAME"
       break  # Proceed with the selected ISO
       ;;
     "Go Back")
@@ -146,7 +175,7 @@ if [[ -z "$VM_NAME" ]]; then
 fi
 
 # Confirm the details before proceeding
-CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nHostname: ${HOSTNAME:-Not set}\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_URL\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
+CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nHostname: ${HOSTNAME:-Not set}\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_PATH\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
 
 if [ $? -ne 0 ]; then
   echo "VM creation canceled."
@@ -159,7 +188,7 @@ sudo virt-install \
   --ram "$RAM" \
   --vcpus "$CPU" \
   --disk size="$DISK_SIZE",format=qcow2 \
-  --cdrom "$ISO_URL" \
+  --cdrom "$ISO_PATH" \
   --network network=default \
   --os-variant ubuntu20.04 \
   --graphics vnc \
