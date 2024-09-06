@@ -21,9 +21,6 @@ if ! command -v virt-install >/dev/null 2>&1; then
   exit 1
 fi
 
-# Create ISO save directory if it doesn't exist
-mkdir -p "$ISO_SAVE_DIR"
-
 # Fullscreen window using clear
 clear
 
@@ -44,85 +41,96 @@ while true; do
     continue
   fi
 
-  # Filter the ISO list based on the search term and create a numbered menu
-  ISO_MENU=""
-  COUNT=1
+  # Filter the ISO list based on the search term and store in an array
+  ISO_ARRAY=()
   while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
     if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
-      ISO_MENU+="$COUNT \"$DESCRIPTION\" "
-      COUNT=$((COUNT + 1))
+      ISO_ARRAY+=("$DESCRIPTION|$URL")
     fi
   done < "$ISO_LIST_FILE"
 
   # Check if there are any matching results
-  if [[ -z "$ISO_MENU" ]]; then
+  if [[ ${#ISO_ARRAY[@]} -eq 0 ]]; then
     whiptail --title "No Results" --msgbox "No ISOs matched your search term '$SEARCH_TERM'." 10 60
     continue
   fi
 
-  # Set the menu height dynamically based on the number of options
-  ISO_MENU_HEIGHT=$(echo "$ISO_MENU" | wc -l)
+  # Pagination variables
+  PAGE_SIZE=5
+  PAGE=1
+  TOTAL_PAGES=$(( (${#ISO_ARRAY[@]} + PAGE_SIZE - 1) / PAGE_SIZE ))
 
-  # Show filtered ISO selection menu with numbered options
-  ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
+  while true; do
+    # Calculate the start and end indices for the current page
+    START=$(( (PAGE - 1) * PAGE_SIZE ))
+    END=$(( START + PAGE_SIZE - 1 ))
+    if [[ $END -ge ${#ISO_ARRAY[@]} ]]; then
+      END=$((${#ISO_ARRAY[@]} - 1))
+    fi
 
-  # If user cancels the menu, exit the script
-  if [ $? -ne 0 ]; then
-    echo "VM creation canceled."
-    exit 1
-  fi
-
-  # Find the corresponding ISO URL based on the selected number
-  COUNT=1
-  while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
-    if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
-      if [[ "$COUNT" == "$ISO_CHOICE" ]]; then
-        ISO_URL="$URL"
-        ISO_NAME=$(basename "$ISO_URL")
-        break
-      fi
+    # Generate the menu for the current page
+    ISO_MENU=""
+    COUNT=1
+    for i in $(seq $START $END); do
+      ISO_DESC=$(echo "${ISO_ARRAY[$i]}" | cut -d'|' -f1)
+      ISO_MENU+="$COUNT \"$ISO_DESC\" "
       COUNT=$((COUNT + 1))
+    done
+
+    # Add navigation options
+    if [[ $PAGE -gt 1 ]]; then
+      ISO_MENU+="Previous \"Previous Page\" "
     fi
-  done < "$ISO_LIST_FILE"
+    if [[ $PAGE -lt $TOTAL_PAGES ]]; then
+      ISO_MENU+="Next \"Next Page\" "
+    fi
 
-  # Make sure we have a valid ISO URL
-  if [[ -z "$ISO_URL" ]]; then
-    whiptail --title "Error" --msgbox "Invalid ISO selection. VM creation canceled." 8 60
-    exit 1
-  fi
+    # Set the menu height dynamically based on the number of options
+    ISO_MENU_HEIGHT=$((PAGE_SIZE + 3))
 
-  # Check if the ISO is already downloaded
-  if [[ ! -f "$ISO_SAVE_DIR$ISO_NAME" ]]; then
-    whiptail --title "Downloading ISO" --msgbox "The selected ISO is not found locally. It will now be downloaded." 10 60
-    wget -O "$ISO_SAVE_DIR$ISO_NAME" "$ISO_URL"
+    # Show paginated ISO selection menu with numbered options
+    ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' $ISO_MENU_HEIGHT 60 $ISO_MENU_HEIGHT $ISO_MENU 3>&1 1>&2 2>&3)
+
+    # If user cancels the menu, exit the script
     if [ $? -ne 0 ]; then
-      whiptail --title "Error" --msgbox "Failed to download the ISO. VM creation canceled." 8 60
-      exit 1
-    fi
-  else
-    whiptail --title "ISO Found" --msgbox "The selected ISO is already downloaded locally." 10 60
-  fi
-
-  # Provide a menu for proceeding or going back
-  ACTION=$(whiptail --title "What next?" --menu "Select what you want to do next:" 15 60 3 \
-  "Proceed" "Proceed with this ISO" \
-  "Go Back" "Search again or change ISO" \
-  "Cancel" "Cancel the VM creation" 3>&1 1>&2 2>&3)
-
-  # Handle the actions
-  case "$ACTION" in
-    "Proceed")
-      ISO_PATH="$ISO_SAVE_DIR$ISO_NAME"
-      break  # Proceed with the selected ISO
-      ;;
-    "Go Back")
-      continue  # Go back to the search input prompt
-      ;;
-    "Cancel")
       echo "VM creation canceled."
       exit 1
-      ;;
-  esac
+    fi
+
+    # Handle the user's choice
+    if [[ "$ISO_CHOICE" == "Next" ]]; then
+      PAGE=$((PAGE + 1))  # Go to the next page
+      continue
+    elif [[ "$ISO_CHOICE" == "Previous" ]]; then
+      PAGE=$((PAGE - 1))  # Go to the previous page
+      continue
+    fi
+
+    # Determine the selected ISO based on the choice number
+    SELECTED_INDEX=$(( (PAGE - 1) * PAGE_SIZE + ISO_CHOICE - 1 ))
+    ISO_URL=$(echo "${ISO_ARRAY[$SELECTED_INDEX]}" | cut -d'|' -f2)
+    ISO_NAME=$(basename "$ISO_URL")
+
+    # Provide a menu for proceeding or going back
+    ACTION=$(whiptail --title "What next?" --menu "Select what you want to do next:" 15 60 3 \
+    "Proceed" "Proceed with this ISO" \
+    "Go Back" "Search again or change ISO" \
+    "Cancel" "Cancel the VM creation" 3>&1 1>&2 2>&3)
+
+    # Handle the actions
+    case "$ACTION" in
+      "Proceed")
+        break 2  # Break out of both loops and proceed with the selected ISO
+        ;;
+      "Go Back")
+        break  # Go back to the search input prompt
+        ;;
+      "Cancel")
+        echo "VM creation canceled."
+        exit 1
+        ;;
+    esac
+  done
 done
 
 # Proceed with the rest of the VM creation process (prompting for VM Name, RAM, etc.)
@@ -175,7 +183,7 @@ if [[ -z "$VM_NAME" ]]; then
 fi
 
 # Confirm the details before proceeding
-CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nHostname: ${HOSTNAME:-Not set}\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_PATH\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
+CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nHostname: ${HOSTNAME:-Not set}\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_URL\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
 
 if [ $? -ne 0 ]; then
   echo "VM creation canceled."
@@ -188,7 +196,7 @@ sudo virt-install \
   --ram "$RAM" \
   --vcpus "$CPU" \
   --disk size="$DISK_SIZE",format=qcow2 \
-  --cdrom "$ISO_PATH" \
+  --cdrom "$ISO_URL" \
   --network network=default \
   --os-variant ubuntu20.04 \
   --graphics vnc \
