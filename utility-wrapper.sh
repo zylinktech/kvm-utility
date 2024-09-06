@@ -32,28 +32,14 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Debugging: Print the parsed form values
-echo "$FORM_OUTPUT" | while read -r line; do echo "Form Value: $line"; done
+# Parse form output using read
+IFS=$'\n' read -r VM_NAME RAM CPU DISK_SIZE ISO_URL STATIC_IP SUBNET_MASK GATEWAY <<< "$FORM_OUTPUT"
 
-# Parse form output
-VM_NAME=$(echo "$FORM_OUTPUT" | sed -n '1p')
-RAM=$(echo "$FORM_OUTPUT" | sed -n '2p')
-CPU=$(echo "$FORM_OUTPUT" | sed -n '3p')
-DISK_SIZE=$(echo "$FORM_OUTPUT" | sed -n '4p')
-ISO_URL=$(echo "$FORM_OUTPUT" | sed -n '5p')
-STATIC_IP=$(echo "$FORM_OUTPUT" | sed -n '6p')
-SUBNET_MASK=$(echo "$FORM_OUTPUT" | sed -n '7p')
-GATEWAY=$(echo "$FORM_OUTPUT" | sed -n '8p')
-
-# Debugging: Print parsed variables
-echo "VM Name: $VM_NAME"
-echo "RAM: $RAM MB"
-echo "CPU Cores: $CPU"
-echo "Disk Size: $DISK_SIZE GB"
-echo "ISO URL: $ISO_URL"
-echo "Static IP: $STATIC_IP"
-echo "Subnet Mask: $SUBNET_MASK"
-echo "Gateway IP: $GATEWAY"
+# Check the parsed variables
+if [[ -z "$VM_NAME" || -z "$RAM" || -z "$CPU" || -z "$DISK_SIZE" || -z "$ISO_URL" ]]; then
+  echo "One or more required fields are missing. VM creation canceled."
+  exit 1
+fi
 
 # If static IP details were entered, configure the network with a static IP
 if [ -n "$STATIC_IP" ] && [ -n "$SUBNET_MASK" ] && [ -n "$GATEWAY" ]; then
