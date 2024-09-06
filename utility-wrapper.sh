@@ -35,7 +35,7 @@ clear
 
 # Loop until a valid ISO is selected or process is canceled
 while true; do
-  SEARCH_TERM=$(whiptail --inputbox "Enter a search term to filter ISO options (leave blank to show all ISOs):" 10 60 3>&1 1>&2 2>&3)
+  SEARCH_TERM=$(whiptail --inputbox "Search ISO (leave blank to show all):" 10 60 3>&1 1>&2 2>&3)
 
   if [ $? -ne 0 ]; then
     log "VM creation canceled during ISO search."
@@ -101,7 +101,7 @@ while true; do
     ISO_URL=$(echo "${ISO_ARRAY[$SELECTED_INDEX]}" | cut -d'|' -f2)
     ISO_NAME=$(basename "$ISO_URL")
 
-    ACTION=$(whiptail --title "What next?" --menu "Select what you want to do next:" 15 60 3 \
+    ACTION=$(whiptail --title "Confirm selection" --menu "Select an option" 15 60 3 \
     "Proceed" "Proceed with this ISO" \
     "Go Back" "Search again or change ISO" \
     "Cancel" "Cancel the VM creation" 3>&1 1>&2 2>&3)
@@ -124,10 +124,10 @@ while true; do
 done
 
 # Proceed with VM creation
-CONFIG_OPTIONS=$(whiptail --title "VM Configuration Menu" --checklist \
-"Select the configuration options you want to set:" 20 60 10 \
+CONFIG_OPTIONS=$(whiptail --title "zylinktech kvm utility" --checklist \
+"Configure:" 20 60 10 \
 "VM Name" "Set the name of the VM." ON \
-"RAM" "Set the RAM size for the VM." ON \
+"RAM" "Set the RAM size for the VM. (MB)" ON \
 "CPU Cores" "Set the number of CPU cores." ON \
 "Disk Size" "Set the disk size (GB)." ON 3>&1 1>&2 2>&3)
 
@@ -194,3 +194,4 @@ else
   log "Failed to create VM $VM_NAME."
   whiptail --title "Error" --msgbox "Failed to create VM $VM_NAME. Check the log file at $LOG_FILE for details." 10 60
 fi
+\
