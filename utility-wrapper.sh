@@ -27,7 +27,7 @@ clear
 # Loop until user successfully selects an ISO or cancels
 while true; do
   # Prompt the user for a search term
-  SEARCH_TERM=$(whiptail --inputbox "Enter a search term to filter ISO options (e.g., Ubuntu, Server, Fedora):" 10 60 3>&1 1>&2 2>&3)
+  SEARCH_TERM=$(whiptail --inputbox "Enter a search term to filter ISO options (leave blank to show all ISOs):" 10 60 3>&1 1>&2 2>&3)
 
   # If user cancels the search
   if [ $? -ne 0 ]; then
@@ -35,19 +35,21 @@ while true; do
     exit 1
   fi
 
-  # Check if search term is empty
-  if [[ -z "$SEARCH_TERM" ]]; then
-    whiptail --title "Error" --msgbox "No search term provided. Please try again." 8 60
-    continue
-  fi
-
-  # Filter the ISO list based on the search term and store in an array
+  # Load the entire ISO list if no search term is provided
   ISO_ARRAY=()
-  while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
-    if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
+  if [[ -z "$SEARCH_TERM" ]]; then
+    # No search term provided, load all ISOs
+    while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
       ISO_ARRAY+=("$DESCRIPTION|$URL")
-    fi
-  done < "$ISO_LIST_FILE"
+    done < "$ISO_LIST_FILE"
+  else
+    # Filter the ISO list based on the search term
+    while IFS="|" read -r OPTION_NUMBER DESCRIPTION URL; do
+      if echo "$DESCRIPTION" | grep -iq "$SEARCH_TERM"; then
+        ISO_ARRAY+=("$DESCRIPTION|$URL")
+      fi
+    done < "$ISO_LIST_FILE"
+  fi
 
   # Check if there are any matching results
   if [[ ${#ISO_ARRAY[@]} -eq 0 ]]; then
