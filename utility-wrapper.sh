@@ -32,6 +32,9 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Debugging: Print the parsed form values
+echo "$FORM_OUTPUT" | while read -r line; do echo "Form Value: $line"; done
+
 # Parse form output
 VM_NAME=$(echo "$FORM_OUTPUT" | sed -n '1p')
 RAM=$(echo "$FORM_OUTPUT" | sed -n '2p')
@@ -41,6 +44,16 @@ ISO_URL=$(echo "$FORM_OUTPUT" | sed -n '5p')
 STATIC_IP=$(echo "$FORM_OUTPUT" | sed -n '6p')
 SUBNET_MASK=$(echo "$FORM_OUTPUT" | sed -n '7p')
 GATEWAY=$(echo "$FORM_OUTPUT" | sed -n '8p')
+
+# Debugging: Print parsed variables
+echo "VM Name: $VM_NAME"
+echo "RAM: $RAM MB"
+echo "CPU Cores: $CPU"
+echo "Disk Size: $DISK_SIZE GB"
+echo "ISO URL: $ISO_URL"
+echo "Static IP: $STATIC_IP"
+echo "Subnet Mask: $SUBNET_MASK"
+echo "Gateway IP: $GATEWAY"
 
 # If static IP details were entered, configure the network with a static IP
 if [ -n "$STATIC_IP" ] && [ -n "$SUBNET_MASK" ] && [ -n "$GATEWAY" ]; then
