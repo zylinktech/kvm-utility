@@ -49,14 +49,14 @@ fi
 # Move utility-wrapper.sh and os-types from the GitHub repo to /usr/local/bin/
 repo_dir="$user_home/kvm-utility"
 if [ -f "$repo_dir/utility-wrapper.sh" ]; then
-  sudo mv "$repo_dir/utility-wrapper.sh" /usr/local/bin/utility-wrapper.sh
+  sudo cp "$repo_dir/utility-wrapper.sh" /usr/local/bin/utility-wrapper.sh
   sudo chmod +x /usr/local/bin/utility-wrapper.sh
 else
   echo "Warning: utility-wrapper.sh not found in $repo_dir."
 fi
 
 if [ -f "$repo_dir/os-types" ]; then
-  sudo mv "$repo_dir/os-types" /usr/local/bin/os-types
+  sudo cp "$repo_dir/os-types" /usr/local/bin/os-types
 else
   echo "Warning: os-types not found in $repo_dir."
 fi
