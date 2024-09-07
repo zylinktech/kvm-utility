@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# Determine the user's home directory dynamically
-user_home=$(eval echo "~$SUDO_USER")
+# Detect the user who invoked the script (even when running with sudo)
+if [ "$SUDO_USER" ]; then
+  actual_user="$SUDO_USER"
+else
+  actual_user="$USER"
+fi
+
+user_home=$(eval echo "~$actual_user")
 
 # Use whiptail to prompt the user for the VM directory and storage pool name
-vm_dir=$(whiptail --inputbox "Enter the directory where your VMs will be stored:" 10 60 /home/user/vm --title "VM Setup" 3>&1 1>&2 2>&3)
+vm_dir=$(whiptail --inputbox "Enter the directory where your VMs will be stored:" 10 60 "$user_home/vm" --title "VM Setup" 3>&1 1>&2 2>&3)
 
 pool_name=$(whiptail --inputbox "Enter the name of the storage pool:" 10 60 "default" --title "Storage Pool Setup" 3>&1 1>&2 2>&3)
 
@@ -23,7 +29,7 @@ dir_total=$(df -h "$vm_dir" | awk 'NR==2 {print $2}')
 dir_used=$(df -h "$vm_dir" | awk 'NR==2 {print $3}')
 
 echo "Available RAM: $available_memory"
-echo "$dir_used of $dir_total used in the directory."
+echo "$dir_used of $dir_total used."
 
 # Enable and start the libvirtd service
 sudo systemctl enable --now libvirtd
