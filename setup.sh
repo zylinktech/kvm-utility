@@ -63,6 +63,15 @@ else
   echo "Warning: os-types not found in $repo_dir."
 fi
 
+# Copy the create_pool.sh script and set the alias
+if [ -f "$repo_dir/create_pool.sh" ]; then
+  echo "Copying create_pool.sh to /usr/local/bin/..."
+  sudo cp "$repo_dir/create_pool.sh" /usr/local/bin/vm-createpool
+  sudo chmod +x /usr/local/bin/vm-createpool
+else
+  echo "Warning: create_pool.sh not found in $repo_dir."
+fi
+
 # Create an alias for all users by adding it to /etc/bash.bashrc
 if ! grep -q "alias vm-create=" /etc/bash.bashrc; then
   sudo sh -c "echo \"alias vm-create='bash /usr/local/bin/utility-wrapper.sh'\" >> /etc/bash.bashrc"
@@ -71,7 +80,15 @@ else
   echo "Alias 'vm-create' already exists."
 fi
 
+# Create an alias for vm-createpool
+if ! grep -q "alias vm-createpool=" /etc/bash.bashrc; then
+  sudo sh -c "echo \"alias vm-createpool='bash /usr/local/bin/vm-createpool'\" >> /etc/bash.bashrc"
+  echo "Alias 'vm-createpool' created."
+else
+  echo "Alias 'vm-createpool' already exists."
+fi
+
 # Reload the bashrc
 source /etc/bash.bashrc
 
-echo "Setup is complete. Run 'vm-create' to provision a VM."
+echo "Setup is complete. Run 'vm-create' to provision a VM, or 'vm-createpool' to create a new storage pool only."
