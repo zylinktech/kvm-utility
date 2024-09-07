@@ -1,28 +1,18 @@
 #!/bin/bash
 
-# Ask user for the directory where VMs should be stored
-read -p "Enter the directory where you want to store your VMs: " vm_directory
+# Prompt the user to enter the directory for storing VMs
+read -p "Setup - Enter VM directory. This is where your VMs will be stored: " vm_dir
 
-# Create the directory if it doesn't exist
-if [ ! -d "$vm_directory" ]; then
-    sudo mkdir -p "$vm_directory"
-    sudo chmod 711 "$vm_directory"
-    echo "Directory created at $vm_directory"
+# Check if the directory exists, create it if not
+if [ ! -d "$vm_dir" ]; then
+  mkdir -p "$vm_dir"
+  echo "Directory $vm_dir created."
 else
-   ### Setup Script (continued):
-
-```bash
-    echo "Directory already exists at $vm_directory"
+  echo "Directory $vm_dir already exists."
 fi
 
-# Define a new storage pool for VMs
-virsh pool-define-as custompool dir --target "$vm_directory"
+# Enable and start the libvirtd service
+sudo systemctl enable --now libvirtd
+sudo systemctl start libvirtd
 
-# Start and autostart the pool
-virsh pool-start custompool
-virsh pool-autostart custompool
-
-# Verify the pool has been created
-virsh pool-list --all
-
-echo "VM storage pool set to $vm_directory"
+echo "Setup is complete. Your VMs will be stored in $vm_dir"
