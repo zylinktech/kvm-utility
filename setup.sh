@@ -2,17 +2,18 @@
 
 # Detect the user who invoked the script (even when running with sudo)
 if [ "$SUDO_USER" ]; then
-  actual_user="$SUDO_USER"
+  user="$SUDO_USER"
 else
-  actual_user="$USER"
+  user="$USER"
 fi
 
-user_home=$(eval echo "~$actual_user")
+user_home=$(eval echo "~$user")
+repo_dir="$(pwd)"  # Get the current working directory
 
 # Use whiptail to prompt the user for the VM directory and storage pool name
 vm_dir=$(whiptail --inputbox "Enter the directory where your VMs will be stored:" 10 60 "$user_home/vm" --title "VM Setup" 3>&1 1>&2 2>&3)
 
-pool_name=$(whiptail --inputbox "Enter the name of the storage pool:" 10 60 "default" --title "Storage Pool Setup" 3>&1 1>&2 2>&3)
+pool_name=$(whiptail --inputbox "Enter the name of the storage pool:" 10 60 "default" --title "Storage Pool Setup" 3>&1 1>&2 2>&3 | tr -d '[:space:]')
 
 # Check if the directory exists, create it if not
 if [ ! -d "$vm_dir" ]; then
@@ -35,7 +36,7 @@ echo "$dir_used of $dir_total used."
 sudo systemctl enable --now libvirtd
 sudo systemctl start libvirtd
 
-# Check if the pool already exists
+# Check if the pool already exists, handle errors properly
 if sudo virsh pool-info "$pool_name" &> /dev/null; then
   echo "Pool '$pool_name' already exists."
 else
@@ -47,8 +48,8 @@ else
 fi
 
 # Move utility-wrapper.sh and os-types from the GitHub repo to /usr/local/bin/
-repo_dir="$user_home/kvm-utility"
 if [ -f "$repo_dir/utility-wrapper.sh" ]; then
+  echo "Copying utility-wrapper.sh to /usr/local/bin/..."
   sudo cp "$repo_dir/utility-wrapper.sh" /usr/local/bin/utility-wrapper.sh
   sudo chmod +x /usr/local/bin/utility-wrapper.sh
 else
@@ -56,12 +57,21 @@ else
 fi
 
 if [ -f "$repo_dir/os-types" ]; then
+  echo "Copying os-types to /usr/local/bin/..."
   sudo cp "$repo_dir/os-types" /usr/local/bin/os-types
 else
   echo "Warning: os-types not found in $repo_dir."
 fi
 
 # Create an alias for all users by adding it to /etc/bash.bashrc
-sudo sh -c "echo \"alias vm-create='bash /usr/local/bin/utility-wrapper.sh'\" >> /etc/bash.bashrc"
+if ! grep -q "alias vm-create=" /etc/bash.bashrc; then
+  sudo sh -c "echo \"alias vm-create='bash /usr/local/bin/utility-wrapper.sh'\" >> /etc/bash.bashrc"
+  echo "Alias 'vm-create' created."
+else
+  echo "Alias 'vm-create' already exists."
+fi
+
+# Reload the bashrc
+source /etc/bash.bashrc
 
 echo "Setup is complete. Run 'vm-create' to provision a VM."
