@@ -1,7 +1,12 @@
 #!/bin/bash
 
-# Prompt the user to enter the directory for storing VMs
-read -p "Setup - Enter VM directory. This is where your VMs will be stored: " vm_dir
+# Determine the user's home directory dynamically
+user_home=$(eval echo "~$SUDO_USER")
+
+# Use whiptail to prompt the user for the VM directory and storage pool name
+vm_dir=$(whiptail --inputbox "Enter the directory where your VMs will be stored:" 10 60 /home/user/vm --title "VM Setup" 3>&1 1>&2 2>&3)
+
+pool_name=$(whiptail --inputbox "Enter the name of the storage pool:" 10 60 "default" --title "Storage Pool Setup" 3>&1 1>&2 2>&3)
 
 # Check if the directory exists, create it if not
 if [ ! -d "$vm_dir" ]; then
@@ -18,23 +23,37 @@ dir_total=$(df -h "$vm_dir" | awk 'NR==2 {print $2}')
 dir_used=$(df -h "$vm_dir" | awk 'NR==2 {print $3}')
 
 echo "Available RAM: $available_memory"
-echo "$dir_used of $dir_total used."
+echo "$dir_used of $dir_total used in the directory."
 
 # Enable and start the libvirtd service
 sudo systemctl enable --now libvirtd
 sudo systemctl start libvirtd
 
-# Create and configure the storage pool
-sudo virsh pool-define-as --name default --type dir --target "$vm_dir"
-sudo virsh pool-start default
-sudo virsh pool-autostart default
+# Check if the pool already exists
+if sudo virsh pool-info "$pool_name" &> /dev/null; then
+  echo "Pool '$pool_name' already exists."
+else
+  # Create and configure the storage pool if it doesn't exist
+  sudo virsh pool-define-as --name "$pool_name" --type dir --target "$vm_dir"
+  sudo virsh pool-start "$pool_name"
+  sudo virsh pool-autostart "$pool_name"
+  echo "Storage pool '$pool_name' created and started."
+fi
 
-# Move utility-wrapper.sh and os-types to /usr/local/bin/
-sudo mv utility-wrapper.sh /usr/local/bin/utility-wrapper.sh
-sudo mv os-types /usr/local/bin/os-types
+# Move utility-wrapper.sh and os-types from the GitHub repo to /usr/local/bin/
+repo_dir="$user_home/kvm-utility"
+if [ -f "$repo_dir/utility-wrapper.sh" ]; then
+  sudo mv "$repo_dir/utility-wrapper.sh" /usr/local/bin/utility-wrapper.sh
+  sudo chmod +x /usr/local/bin/utility-wrapper.sh
+else
+  echo "Warning: utility-wrapper.sh not found in $repo_dir."
+fi
 
-# Give executable permissions to utility-wrapper.sh
-sudo chmod +x /usr/local/bin/utility-wrapper.sh
+if [ -f "$repo_dir/os-types" ]; then
+  sudo mv "$repo_dir/os-types" /usr/local/bin/os-types
+else
+  echo "Warning: os-types not found in $repo_dir."
+fi
 
 # Create an alias for all users by adding it to /etc/bash.bashrc
 sudo sh -c "echo \"alias vm-create='bash /usr/local/bin/utility-wrapper.sh'\" >> /etc/bash.bashrc"
