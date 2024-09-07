@@ -24,6 +24,11 @@ echo "$dir_used of $dir_total used."
 sudo systemctl enable --now libvirtd
 sudo systemctl start libvirtd
 
+# Create and configure the storage pool
+sudo virsh pool-define-as --name default --type dir --target "$vm_dir"
+sudo virsh pool-start default
+sudo virsh pool-autostart default
+
 # Move utility-wrapper.sh and os-types to /usr/local/bin/
 sudo mv utility-wrapper.sh /usr/local/bin/utility-wrapper.sh
 sudo mv os-types /usr/local/bin/os-types
