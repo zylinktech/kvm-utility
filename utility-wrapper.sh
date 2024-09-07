@@ -8,11 +8,6 @@ log() {
   echo "$(date) - $1" >> "$LOG_FILE"
 }
 
-# Logging function
-log() {
-  echo "$(date) - $1" >> "$LOG_FILE"
-}
-
 # Get storage pool path
 vm_directory=$(virsh pool-dumpxml custompool | grep -oP '(?<=<path>).*?(?=</path>)')
 
