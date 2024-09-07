@@ -11,11 +11,12 @@ else
   echo "Directory $vm_dir already exists."
 fi
 
-# Display available system memory
+# Display available system memory and directory storage usage
 available_memory=$(free -h | awk '/Mem:/ {print $2}')
 dir_usage=$(du -sh "$vm_dir" 2>/dev/null | awk '{print $1}')
 dir_total=$(df -h "$vm_dir" | awk 'NR==2 {print $2}')
 dir_used=$(df -h "$vm_dir" | awk 'NR==2 {print $3}')
+
 echo "Available RAM: $available_memory"
 echo "$dir_used of $dir_total used."
 
@@ -23,4 +24,8 @@ echo "$dir_used of $dir_total used."
 sudo systemctl enable --now libvirtd
 sudo systemctl start libvirtd
 
-echo "Setup is complete. Your VMs will be stored in $vm_dir"
+# Create an alias for running utility-wrapper.sh with alias name 'vm-create'
+echo "alias vm-create='bash $vm_dir/utility-wrapper.sh'" >> ~/.bashrc
+source ~/.bashrc
+
+echo "Setup is complete. Run 'vm-create' to provision a VM."
