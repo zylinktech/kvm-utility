@@ -24,8 +24,7 @@ echo "$dir_used of $dir_total used."
 sudo systemctl enable --now libvirtd
 sudo systemctl start libvirtd
 
-# Create an alias for running utility-wrapper.sh with alias name 'vm-create'
-echo "alias vm-create='bash $vm_dir/utility-wrapper.sh'" >> ~/.bashrc
-source ~/.bashrc
+# Create an alias for all users by adding it to /etc/bash.bashrc
+sudo sh -c "echo \"alias vm-create='bash $vm_dir/utility-wrapper.sh'\" >> /etc/bash.bashrc"
 
 echo "Setup is complete. Run 'vm-create' to provision a VM."
