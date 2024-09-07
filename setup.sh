@@ -24,7 +24,14 @@ echo "$dir_used of $dir_total used."
 sudo systemctl enable --now libvirtd
 sudo systemctl start libvirtd
 
+# Move utility-wrapper.sh and os-types to /usr/local/bin/
+sudo mv utility-wrapper.sh /usr/local/bin/utility-wrapper.sh
+sudo mv os-types /usr/local/bin/os-types
+
+# Give executable permissions to utility-wrapper.sh
+sudo chmod +x /usr/local/bin/utility-wrapper.sh
+
 # Create an alias for all users by adding it to /etc/bash.bashrc
-sudo sh -c "echo \"alias vm-create='bash $vm_dir/utility-wrapper.sh'\" >> /etc/bash.bashrc"
+sudo sh -c "echo \"alias vm-create='bash /usr/local/bin/utility-wrapper.sh'\" >> /etc/bash.bashrc"
 
 echo "Setup is complete. Run 'vm-create' to provision a VM."
