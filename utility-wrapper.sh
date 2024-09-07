@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ISO_LIST_FILE="os-types"
+ISO_LIST_FILE="/usr/local/bin/os-types"
 LOG_FILE="/var/log/kvm-utility.log"
 
 # Logging function
@@ -8,24 +8,10 @@ log() {
   echo "$(date) - $1" >> "$LOG_FILE"
 }
 
-# Ensure necessary components are installed
-if ! command -v whiptail >/dev/null 2>&1; then
-  log "whiptail is not installed."
-  echo "whiptail is not installed. Install it using: sudo apt install whiptail"
-  exit 1
-fi
-
-if ! command -v virt-install >/dev/null 2>&1; then
-  log "virt-install is not installed."
-  echo "virt-install is not installed. Install it using: sudo apt install virt-manager"
-  exit 1
-fi
-
-# Ask for custom storage location
-if ! virsh pool-info custompool >/dev/null 2>&1; then
-  whiptail --title "Setup Error" --msgbox "Custom storage pool not found. Please run the setup script first to define the storage pool." 10 60
-  exit 1
-fi
+# Logging function
+log() {
+  echo "$(date) - $1" >> "$LOG_FILE"
+}
 
 # Get storage pool path
 vm_directory=$(virsh pool-dumpxml custompool | grep -oP '(?<=<path>).*?(?=</path>)')
@@ -81,7 +67,7 @@ while true; do
     [ $PAGE -gt 1 ] && ISO_MENU+="Previous \"Previous Page\" "
     [ $PAGE -lt $TOTAL_PAGES ] && ISO_MENU+="Next \"Next Page\" "
 
-    ISO_CHOICE=$(eval whiptail --title '"Choose OS ISO"' --menu '"Select the operating system to install:"' 15 60 10 $ISO_MENU 3>&1 1>&2 2>&3)
+    ISO_CHOICE=$(eval whiptail --title '"Choose Guest OS"' --menu '"Select the operating system to install:"' 15 60 10 $ISO_MENU 3>&1 1>&2 2>&3)
 
     if [ $? -ne 0 ]; then
       log "VM creation canceled during ISO selection."
@@ -140,7 +126,7 @@ fi
 VM_NAME=""
 RAM="2048"
 CPU="2"
-DISK_SIZE="20"
+DISK_SIZE="16"
 
 if [[ $CONFIG_OPTIONS == *"VM Name"* ]]; then
   VM_NAME=$(whiptail --inputbox "Enter the VM name:" 10 60 3>&1 1>&2 2>&3)
@@ -160,7 +146,7 @@ fi
 
 if [[ -z "$VM_NAME" ]]; then
   log "VM creation failed: No VM name provided."
-  whiptail --title "Error" --msgbox "VM Name is required. VM creation canceled." 8 60
+  whiptail --title "Error" --msgbox "VM Name is required. Exiting." 8 60
   exit 1
 fi
 
@@ -194,4 +180,3 @@ else
   log "Failed to create VM $VM_NAME."
   whiptail --title "Error" --msgbox "Failed to create VM $VM_NAME. Check the log file at $LOG_FILE for details." 10 60
 fi
-\
