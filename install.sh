@@ -10,5 +10,7 @@ sudo apt install -y virt-manager
 sudo apt install -y cpu-checker
 
 sudo apt install -y whiptail
-
+clear
 sudo kvm-ok
+echo ""
+echo "System restart recommended."
