@@ -11,7 +11,7 @@ user_home=$(eval echo "~$user")
 repo_dir="$(pwd)"  # Get the current working directory
 
 # Use whiptail to prompt the user for the VM directory and storage pool name
-vm_dir=$(whiptail --inputbox "Enter the directory where your VMs will be stored:" 10 60 "$user_home/vm" --title "VM Setup" 3>&1 1>&2 2>&3)
+vm_dir=$(whiptail --inputbox "Enter the directory where your VMs will be stored:" 10 60 "$user_home/VMs" --title "zylinktech kvm utility - setup" 3>&1 1>&2 2>&3)
 
 pool_name=$(whiptail --inputbox "Enter the name of the storage pool:" 10 60 "default" --title "Storage Pool Setup" 3>&1 1>&2 2>&3 | tr -d '[:space:]')
 
