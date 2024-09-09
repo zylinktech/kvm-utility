@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ISO_LIST_FILE="/usr/local/bin/os-types"
-LOG_FILE="/var/log/kvm-utility.log"
+LOG_FILE="$HOME/kvm-utility.log"
 
 # Logging function
 log() {
