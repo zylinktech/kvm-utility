@@ -1,5 +1,5 @@
-1|Ubuntu Desktop 22.04|https://releases.ubuntu.com/22.04/ubuntu-22.04.1-desktop-amd64.iso
-2|Ubuntu Server 22.04|https://releases.ubuntu.com/22.04/ubuntu-22.04-live-server-amd64.iso
+1|Ubuntu Desktop 22.04|https://ubuntu.com/download/desktop/thank-you?version=24.04.1&architecture=amd64&lts=true
+2|Ubuntu Server 22.04|https://ubuntu.com/download/server/thank-you?version=24.04.1&architecture=amd64&lts=true
 3|Kali Linux 2022.3|https://cdimage.kali.org/kali-2022.3/kali-linux-2022.3-live-amd64.iso
 4|Linux Mint 21|https://mirrors.edge.kernel.org/linuxmint/stable/21/linuxmint-21-cinnamon-64bit.iso
-5|OPNsense 22.7|https://mirror.wdc1.us.leaseweb.net/opnsense/releases/24.7/OPNsense-24.7-dvd-amd64.iso.bz2
+5|OPNsense 22.7|https://mirror.wdc1.us.leaseweb.net/opnsense/releases/24.7/OPNsense-24.7-vga-amd64.img.bz2
