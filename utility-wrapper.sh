@@ -2,6 +2,7 @@
 
 ISO_LIST_FILE="/usr/local/bin/os-types"
 LOG_FILE="/var/log/kvm-utility.log"
+DOWNLOAD_DIR="/var/lib/libvirt/images"  # Directory to download ISO files
 
 # Logging function
 log() {
@@ -19,6 +20,12 @@ if ! command -v virt-install >/dev/null 2>&1; then
   log "virt-install is not installed."
   echo "virt-install is not installed. Install it using: sudo apt install virt-manager"
   exit 1
+fi
+
+# Ensure the download directory exists
+if [ ! -d "$DOWNLOAD_DIR" ]; then
+  sudo mkdir -p "$DOWNLOAD_DIR"
+  sudo chown libvirt-qemu:kvm "$DOWNLOAD_DIR"
 fi
 
 # Get available storage pools
@@ -117,6 +124,17 @@ while true; do
     ISO_URL=$(echo "${ISO_ARRAY[$SELECTED_INDEX]}" | cut -d'|' -f2)
     ISO_NAME=$(basename "$ISO_URL")
 
+    # Download the ISO to the local directory
+    if [ ! -f "$DOWNLOAD_DIR/$ISO_NAME" ]; then
+      log "Downloading ISO: $ISO_NAME"
+      wget -O "$DOWNLOAD_DIR/$ISO_NAME" "$ISO_URL"
+      if [ $? -ne 0 ]; then
+        log "Failed to download ISO: $ISO_NAME"
+        whiptail --title "Error" --msgbox "Failed to download the ISO. Please check your network connection." 8 60
+        exit 1
+      fi
+    fi
+
     ACTION=$(whiptail --title "Confirm selection" --menu "Select an option" 15 60 3 \
     "Proceed" "Proceed with this ISO" \
     "Go Back" "Search again or change ISO" \
@@ -125,6 +143,7 @@ while true; do
     case "$ACTION" in
       "Proceed")
         log "ISO selected: $ISO_NAME"
+        ISO_PATH="$DOWNLOAD_DIR/$ISO_NAME"
         break 2
         ;;
       "Go Back")
@@ -180,7 +199,7 @@ if [[ -z "$VM_NAME" ]]; then
   exit 1
 fi
 
-CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_URL\nStorage Pool: $selected_pool\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
+CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_PATH\nStorage Pool: $selected_pool\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
 
 if [ $? -ne 0 ]; then
   log "VM creation canceled after confirmation."
@@ -194,10 +213,10 @@ sudo virt-install \
   --ram "$RAM" \
   --vcpus "$CPU" \
   --disk path="$vm_directory/$VM_NAME.qcow2",size="$DISK_SIZE",format=qcow2 \
-  --cdrom "$ISO_URL" \
+  --cdrom "$ISO_PATH" \
   --network network=default,model=virtio \
   --os-variant ubuntu20.04 \
-  --graphics vnc \
+  --graphics vnc,listen=0.0.0.0 --noautoconsole
   --console pty,target_type=serial \
   --check disk_size=off 2>> "$LOG_FILE"
 
@@ -209,3 +228,5 @@ if [ $? -eq 0 ]; then
 else
   log "Failed to create VM $VM_NAME."
   whiptail --title "Error" --msgbox "Failed to create VM $VM_NAME. Check the log file at $LOG_FILE for details."
+fi
+exit 0
