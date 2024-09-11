@@ -3,6 +3,8 @@
 ISO_LIST_FILE="/usr/local/bin/os-types"
 LOG_FILE="/var/log/kvm-utility.log"
 DOWNLOAD_DIR="/var/lib/libvirt/images"  # Directory to download ISO files
+BRIDGE_NAME="br0"  # Assume this bridge already exists
+PHYS_IFACE="eth0"  # Your physical interface (use `ip link` to check)
 
 # Logging function
 log() {
@@ -10,12 +12,6 @@ log() {
 }
 
 # Ensure necessary components are installed
-if ! command -v whiptail >/dev/null 2>&1; then
-  log "whiptail is not installed."
-  echo "whiptail is not installed. Install it using: sudo apt install whiptail"
-  exit 1
-fi
-
 if ! command -v virt-install >/dev/null 2>&1; then
   log "virt-install is not installed."
   echo "virt-install is not installed. Install it using: sudo apt install virt-manager"
@@ -26,6 +22,13 @@ fi
 if [ ! -d "$DOWNLOAD_DIR" ]; then
   sudo mkdir -p "$DOWNLOAD_DIR"
   sudo chown libvirt-qemu:kvm "$DOWNLOAD_DIR"
+fi
+
+# Check if the bridge exists
+if ! ip link show "$BRIDGE_NAME" >/dev/null 2>&1; then
+  log "Bridge $BRIDGE_NAME not found."
+  whiptail --title "Error" --msgbox "Bridge interface $BRIDGE_NAME not found. Please create it manually before proceeding." 10 60
+  exit 1
 fi
 
 # Get available storage pools
@@ -199,7 +202,7 @@ if [[ -z "$VM_NAME" ]]; then
   exit 1
 fi
 
-CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_PATH\nStorage Pool: $selected_pool\nNetwork: DHCP\n\nDo you want to proceed?" 15 60)
+CONFIRM=$(whiptail --title "Confirmation" --yesno "Confirm VM details:\n\nVM Name: $VM_NAME\nRAM: ${RAM}MB\nCPU Cores: $CPU\nDisk Size: ${DISK_SIZE}GB\nISO: $ISO_PATH\nStorage Pool: $selected_pool\nNetwork: Bridged (DHCP)\n\nDo you want to proceed?" 15 60)
 
 if [ $? -ne 0 ]; then
   log "VM creation canceled after confirmation."
@@ -214,9 +217,9 @@ sudo virt-install \
   --vcpus "$CPU" \
   --disk path="$vm_directory/$VM_NAME.qcow2",size="$DISK_SIZE",format=qcow2 \
   --cdrom "$ISO_PATH" \
-  --network network=default,model=virtio \
+  --network bridge=$BRIDGE_NAME,model=virtio \
   --os-variant ubuntu20.04 \
-  --graphics vnc,listen=0.0.0.0 --noautoconsole
+  --graphics vnc,listen=0.0.0.0 --noautoconsole \
   --console pty,target_type=serial \
   --check disk_size=off 2>> "$LOG_FILE"
 
