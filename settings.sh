@@ -16,222 +16,122 @@ get_home_directory() {
     fi
 }
 
-# Function to create a storage pool with a default location in the invoking user's home directory and display pool size after creation
-create_pool() {
-    user_home=$(get_home_directory)
+# Function to view VM network settings
+view_network_settings() {
+    vm_name="$1"
+    network_info=$(sudo virsh domiflist "$vm_name")
+
+    whiptail --title "Network Settings: $vm_name" --msgbox "$network_info" 15 60
+}
+
+# Function to display VM information
+view_vm_information() {
+    vm_name="$1"
+    vm_info=$(sudo virsh dominfo "$vm_name")
+
+    # Check for VM autostart and protection status
+    autostart=$(sudo virsh dominfo "$vm_name" | grep -i "Autostart" | awk '{print $2}')
+    is_protected=$(sudo virsh dumpxml "$vm_name" | grep -i "<protected>" | awk -F'[><]' '{print $3}')
     
-    # Provide the default pool directory as ~/VMs
-    pool_dir=$(whiptail --inputbox "Enter the directory for the storage pool:" 10 60 "$user_home/VMs" --title "Create Storage Pool" 3>&1 1>&2 2>&3)
+    # Modify options for autostart and protection checkboxes
+    vm_info+="\nAutostart: $autostart"
+    vm_info+="\nProtected: ${is_protected:-No}"
 
-    if [ $? -ne 0 ] || [ -z "$pool_dir" ]; then
-        echo "Operation canceled or invalid directory."
-        log "Operation canceled or invalid directory for storage pool."
-        return
-    fi
+    whiptail --title "VM Information: $vm_name" --msgbox "$vm_info" 15 60
 
-    # Create the directory if it doesn't exist
-    if [ ! -d "$pool_dir" ]; then
-        mkdir -p "$pool_dir"
-        log "Directory $pool_dir created."
-    fi
+    # Ask user if they want to modify autostart or protected status
+    OPTIONS=$(whiptail --title "VM Options" --checklist "Modify VM options:" 20 60 10 \
+    "Autostart" "Enable/Disable Autostart" "$autostart" \
+    "Protected" "Enable/Disable VM Protection" "${is_protected:-OFF}" 3>&1 1>&2 2>&3)
 
-    # Ask for the storage pool name
-    pool_name=$(whiptail --inputbox "Enter the name of the new storage pool:" 10 60 "newpool" --title "Create Storage Pool" 3>&1 1>&2 2>&3)
-
-    if [ $? -ne 0 ] || [ -z "$pool_name" ]; then
-        echo "Operation canceled or invalid pool name."
-        log "Operation canceled or invalid pool name."
-        return
-    fi
-
-    # Define and start the storage pool
-    sudo virsh pool-define-as --name "$pool_name" --type dir --target "$pool_dir"
-    if [ $? -eq 0 ]; then
-        sudo virsh pool-start "$pool_name"
-        sudo virsh pool-autostart "$pool_name"
-        log "Storage pool '$pool_name' created at '$pool_dir'."
-
-        pool_info=$(sudo virsh pool-info "$pool_name")
-        total_size=$(echo "$pool_info" | grep 'Capacity' | awk '{print $2, $3}')
-        free_size=$(echo "$pool_info" | grep 'Available' | awk '{print $2, $3}')
-        whiptail --title "Pool Info" --msgbox "Storage pool '$pool_name' created at '$pool_dir'.\nTotal Size: $total_size\nFree Space: $free_size" 10 60
-    else
-        echo "Failed to define the storage pool."
-        log "Failed to define storage pool '$pool_name'."
-    fi
-}
-
-# Function to delete a virtual machine with error handling
-delete_vm() {
-    available_vms=$(sudo virsh list --all | awk 'NR>2 {print $2}')
-
-    if [ -z "$available_vms" ]; then
-        whiptail --title "Error" --msgbox "No VMs available to delete." 10 60
-        log "No VMs available for deletion."
-        return
-    fi
-
-    vm_options=()
-    for vm in $available_vms; do
-        vm_options+=("$vm" "$vm")
-    done
-
-    selected_vm=$(whiptail --title "Delete VM" --menu "Select a VM to delete:" 15 60 5 "${vm_options[@]}" 3>&1 1>&2 2>&3)
-
-    if [ $? -ne 0 ]; then
-        echo "Operation canceled."
-        return
-    fi
-
-    if sudo virsh dominfo "$selected_vm" >/dev/null 2>&1; then
-        # Only try to destroy the VM if it's running
-        if sudo virsh domstate "$selected_vm" | grep -q "running"; then
-            sudo virsh destroy "$selected_vm"
-            log "VM '$selected_vm' destroyed."
+    if [[ "$OPTIONS" == *"Autostart"* ]]; then
+        if [[ "$autostart" == "on" ]]; then
+            sudo virsh autostart --disable "$vm_name"
+        else
+            sudo virsh autostart "$vm_name"
         fi
-        sudo virsh undefine "$selected_vm" --remove-all-storage
-        log "VM '$selected_vm' undefined and deleted."
-    else
-        echo "VM '$selected_vm' not found."
-        log "VM '$selected_vm' not found."
+        log "VM $vm_name autostart modified."
+    fi
+
+    if [[ "$OPTIONS" == *"Protected"* ]]; then
+        if [[ "$is_protected" == "Yes" ]]; then
+            sudo virsh edit "$vm_name" --remove "<protected/>"
+        else
+            sudo virsh edit "$vm_name" --add "<protected/>"
+        fi
+        log "VM $vm_name protection status modified."
     fi
 }
 
-# Function to delete a storage pool with size and usage display
-delete_pool() {
-    available_pools=$(sudo virsh pool-list --all | awk 'NR>2 {print $1}')
+# Function to edit virbr0 network to use the same subnet as the host
+edit_virbr0_network() {
+    # Get the host network configuration
+    host_interface=$(ip route | grep default | awk '{print $5}')
+    host_ip=$(ip -o -f inet addr show "$host_interface" | awk '{print $4}')
+    host_gateway=$(ip route | grep default | awk '{print $3}')
+    host_subnet=$(ip -o -f inet addr show "$host_interface" | awk '{print $4}')
 
-    if [ -z "$available_pools" ]; then
-        whiptail --title "Error" --msgbox "No storage pools available to delete." 10 60
-        log "No storage pools available for deletion."
-        return
-    fi
+    # Edit virbr0 settings to match the host network
+    sudo virsh net-destroy default
+    sudo virsh net-edit default
 
-    pool_options=()
-    for pool in $available_pools; do
-        pool_info=$(sudo virsh pool-info "$pool")
-        total_size=$(echo "$pool_info" | grep 'Capacity' | awk '{print $2, $3}')
-        free_size=$(echo "$pool_info" | grep 'Available' | awk '{print $2, $3}')
-        used_size=$(echo "$total_size - $free_size" | bc)
-        pool_options+=("$pool" "($used_size/$total_size Used)")
-    done
-
-    selected_pool=$(whiptail --title "Delete Storage Pool" --menu "Select a storage pool to delete:" 15 60 5 "${pool_options[@]}" 3>&1 1>&2 2>&3)
-
-    if [ $? -ne 0 ]; then
-        echo "Operation canceled."
-        return
-    fi
-
-    if sudo virsh pool-info "$selected_pool" >/dev/null 2>&1; then
-        sudo virsh pool-destroy "$selected_pool"
-        sudo virsh pool-undefine "$selected_pool"
-        log "Storage pool '$selected_pool' deleted."
-    else
-        echo "Storage pool '$selected_pool' not found."
-        log "Storage pool '$selected_pool' not found."
-    fi
-}
-
-# Function to display VM Information (status, network, and IP)
-vm_information() {
-    available_vms=$(sudo virsh list --all | awk 'NR>2 {print $2}')
-
-    if [ -z "$available_vms" ]; then
-        whiptail --title "VM Information" --msgbox "No VMs available." 10 60
-        log "No VMs available for information display."
-        return
-    fi
-
-    vm_options=()
-    for vm in $available_vms; do
-        status=$(sudo virsh domstate "$vm")
-        network=$(sudo virsh domiflist "$vm" | awk 'NR>2 {print $3}')
-        ip=$(sudo virsh domifaddr "$vm" | grep ipv4 | awk '{print $4}' | cut -d'/' -f1)
-        vm_options+=("$vm" "Status: $status, Network: $network, IP: ${ip:-Not Available}")
-    done
-
-    whiptail --title "VM Information" --menu "Select a VM to view details:" 15 60 5 "${vm_options[@]}" 3>&1 1>&2 2>&3
-}
-
-# Function to manage network interfaces (create, delete, or change)
-manage_network_interface() {
-    ACTION=$(whiptail --title "Network Interface" --menu "Choose an action:" 15 60 4 \
-    "1" "Create Network Interface" \
-    "2" "Delete Network Interface" \
-    "3" "Change Network Interface for a VM" \
-    "4" "Back" 3>&1 1>&2 2>&3)
-
-    case "$ACTION" in
-        1) create_network_interface ;;
-        2) delete_network_interface ;;
-        3) change_network_interface ;;
-        4) return ;;
-    esac
-}
-
-# Function to create a network interface (bridge or vnet)
-create_network_interface() {
-    interface_type=$(whiptail --title "Select Interface Type" --menu "Choose the type of network interface to create:" 15 60 2 \
-    "1" "Bridge" \
-    "2" "Virtual Network (vnet)" 3>&1 1>&2 2>&3)
-
-    if [ "$interface_type" == "1" ]; then
-        bridge_name=$(whiptail --inputbox "Enter the bridge name (e.g., br0):" 10 60 "br0" 3>&1 1>&2 2>&3)
-        physical_interface=$(whiptail --inputbox "Enter the physical network interface (e.g., eth0):" 10 60 "eth0" 3>&1 1>&2 2>&3)
-        sudo nmcli connection add type bridge con-name "$bridge_name" ifname "$bridge_name"
-        sudo nmcli connection add type bridge-slave ifname "$physical_interface" master "$bridge_name"
-        sudo nmcli connection modify "$bridge_name" ipv4.method auto
-        sudo nmcli connection up "$bridge_name"
-        whiptail --title "Success" --msgbox "Bridge $bridge_name created successfully." 10 60
-        log "Bridge $bridge_name created with physical interface $physical_interface."
-
-    elif [ "$interface_type" == "2" ]; then
-        vnet_name=$(whiptail --inputbox "Enter the virtual network interface name (e.g., vnet0):" 10 60 "vnet0" 3>&1 1>&2 2>&3)
-        vnet_xml="/tmp/${vnet_name}.xml"
-        sudo bash -c "cat > $vnet_xml" <<EOL
+    cat <<EOL | sudo tee /etc/libvirt/qemu/networks/default.xml
 <network>
-  <name>$vnet_name</name>
-  <bridge name='$vnet_name' stp='on' delay='0'/>
-  <ip address='192.168.100.1' netmask='255.255.255.0'/>
+  <name>default</name>
+  <forward mode='nat'/>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <ip address='$host_ip' netmask='$host_subnet'>
+    <dhcp>
+      <range start='${host_ip%.*}.100' end='${host_ip%.*}.200'/>
+    </dhcp>
+  </ip>
 </network>
 EOL
-        sudo virsh net-define "$vnet_xml"
-        sudo virsh net-start "$vnet_name"
-        sudo virsh net-autostart "$vnet_name"
-        whiptail --title "Success" --msgbox "Virtual network $vnet_name created successfully." 10 60
-        log "Virtual network $vnet_name created."
-        rm -f "$vnet_xml"
-    fi
+
+    sudo virsh net-start default
+    sudo virsh net-autostart default
+
+    whiptail --title "Success" --msgbox "virbr0 edited to match the host's network configuration." 10 60
+    log "virbr0 edited to use the same subnet as the host."
 }
 
-# Function to delete a network interface
-delete_network_interface() {
-    interfaces=$(ip link show | grep -oP '^\d+: \K\w+')
-    if [ -z "$interfaces" ]; then
-        whiptail --title "Error" --msgbox "No network interfaces found." 10 60
+# Function to create a network bridge using the selected physical interface
+create_bridge() {
+    bridge_name=$(whiptail --inputbox "Enter the bridge name (e.g., br0):" 10 60 "br0" 3>&1 1>&2 2>&3)
+
+    if [ $? -ne 0 ] || [ -z "$bridge_name" ]; then
+        echo "Operation canceled or invalid bridge name."
+        log "Operation canceled or invalid bridge name."
         return
     fi
 
-    interface_options=()
-    for iface in $interfaces; do
-        interface_options+=("$iface" "$iface")
-    done
+    selected_iface=$(scan_physical_interfaces)
 
-    selected_interface=$(whiptail --title "Delete Network Interface" --menu "Select an interface to delete:" 15 60 5 "${interface_options[@]}" 3>&1 1>&2 2>&3)
+    ip_addr=$(ip -o -f inet addr show "$selected_iface" | awk '{print $4}')
+    gateway=$(ip route | grep "$selected_iface" | grep default | awk '{print $3}')
+    subnet=$(ip -o -f inet addr show "$selected_iface" | awk '{print $4}')
 
-    if [ $? -ne 0 ]; then
-        echo "Operation canceled."
+    if [ -z "$ip_addr" ] || [ -z "$gateway" ] || [ -z "$subnet" ]; then
+        whiptail --title "Error" --msgbox "Failed to retrieve IP configuration for interface $selected_iface." 10 60
+        log "Failed to retrieve IP configuration for interface $selected_iface."
         return
     fi
 
-    sudo nmcli connection delete "$selected_interface"
-    whiptail --title "Success" --msgbox "Network interface $selected_interface deleted successfully." 10 60
+    sudo nmcli connection add type bridge con-name "$bridge_name" ifname "$bridge_name"
+    sudo nmcli connection add type bridge-slave ifname "$selected_iface" master "$bridge_name"
+    sudo nmcli connection modify "$bridge_name" ipv4.addresses "$ip_addr"
+    sudo nmcli connection modify "$bridge_name" ipv4.gateway "$gateway"
+    sudo nmcli connection modify "$bridge_name" ipv4.method manual
+    sudo nmcli connection up "$bridge_name"
+
+    whiptail --title "Success" --msgbox "Bridge $bridge_name created and connected to interface $selected_iface." 10 60
+    log "Bridge $bridge_name created with physical interface $selected_iface."
 }
 
-# Function to change the network interface of a VM
-change_network_interface() {
+# Function to manage VMs (start, stop, restart, delete, attach/detach interfaces, view network settings, view VM information)
+manage_vm() {
     available_vms=$(sudo virsh list --all | awk 'NR>2 {print $2}')
+
     if [ -z "$available_vms" ]; then
         whiptail --title "Error" --msgbox "No VMs available." 10 60
         return
@@ -242,48 +142,137 @@ change_network_interface() {
         vm_options+=("$vm" "$vm")
     done
 
-    selected_vm=$(whiptail --title "Change VM Network" --menu "Select a VM to change the network interface:" 15 60 5 "${vm_options[@]}" 3>&1 1>&2 2>&3)
-
-    interfaces=$(ip link show | grep -E '^[0-9]+: br' | awk -F: '{print $2}' | xargs)
-    if [ -z "$interfaces" ]; then
-        whiptail --title "Error" --msgbox "No available bridge interfaces found." 10 60
-        return
-    fi
-
-    bridge_options=()
-    for iface in $interfaces; do
-        bridge_options+=("$iface" "$iface")
-    done
-
-    selected_bridge=$(whiptail --title "Select Bridge" --menu "Select the bridge interface to assign:" 15 60 5 "${bridge_options[@]}" 3>&1 1>&2 2>&3)
+    selected_vm=$(whiptail --title "VM Management" --menu "Select a VM to manage:" 15 60 5 "${vm_options[@]}" 3>&1 1>&2 2>&3)
 
     if [ $? -ne 0 ]; then
         echo "Operation canceled."
         return
     fi
 
-    sudo virsh detach-interface "$selected_vm" bridge --current
-    sudo virsh attach-interface --domain "$selected_vm" --type bridge --source "$selected_bridge" --model virtio --config --live
-    whiptail --title "Success" --msgbox "Network interface of VM $selected_vm changed to $selected_bridge." 10 60
+    vm_action=$(whiptail --title "Manage VM" --menu "Choose an action for VM $selected_vm:" 15 60 8 \
+    "1" "Start VM" \
+    "2" "Stop VM" \
+    "3" "Restart VM" \
+    "4" "Delete VM" \
+    "5" "Attach Network Interface" \
+    "6" "Detach Network Interface" \
+    "7" "View Network Settings" \
+    "8" "View VM Information" 3>&1 1>&2 2>&3)
+
+    case "$vm_action" in
+        1) sudo virsh start "$selected_vm"; log "VM $selected_vm started." ;;
+        2) sudo virsh shutdown "$selected_vm"; log "VM $selected_vm stopped." ;;
+        3) sudo virsh reboot "$selected_vm"; log "VM $selected_vm restarted." ;;
+        4) sudo virsh destroy "$selected_vm"; sudo virsh undefine "$selected_vm"; log "VM $selected_vm deleted." ;;
+        5) attach_network_interface "$selected_vm" ;;
+        6) detach_network_interface "$selected_vm" ;;
+        7) view_network_settings "$selected_vm" ;;
+        8) view_vm_information "$selected_vm" ;;
+        *) echo "Invalid option." ;;
+    esac
+}
+
+# Function to attach a network interface to a VM
+attach_network_interface() {
+    available_interfaces=$(ip link show | grep -oP '^\d+: \K\w+')
+
+    if [ -z "$available_interfaces" ]; then
+        whiptail --title "Error" --msgbox "No available interfaces found to attach." 10 60
+        return
+    fi
+
+    interface_options=()
+    for iface in $available_interfaces; do
+        interface_options+=("$iface" "$iface")
+    done
+
+    selected_interface=$(whiptail --title "Attach Network Interface" --menu "Select an interface to attach:" 15 60 5 "${interface_options[@]}" 3>&1 1>&2 2>&3)
+
+    if [ $? -ne 0 ] || [ -z "$selected_interface" ]; then
+        echo "Operation canceled or invalid interface."
+        return
+    fi
+
+    sudo virsh attach-interface --domain "$1" --type bridge --source "$selected_interface" --model virtio --config --live
+    log "Network interface $selected_interface attached to VM $1."
+}
+
+# Function to detach a network interface from a VM
+detach_network_interface() {
+    interfaces=$(sudo virsh domiflist "$1" | awk 'NR>2 {print $1, $5}')
+    
+    if [ -z "$interfaces" ]; then
+        whiptail --title "Error" --msgbox "No network interfaces found for VM $1." 10 60
+        return
+    fi
+
+    interface_options=()
+    while read -r line; do
+        iface_name=$(echo "$line" | awk '{print $1}')
+        iface_mac=$(echo "$line" | awk '{print $2}')
+        interface_options+=("$iface_mac" "$iface_name")
+    done <<< "$interfaces"
+
+    selected_iface_mac=$(whiptail --title "Detach Network Interface" --menu "Select an interface to detach from VM $1:" 15 60 5 "${interface_options[@]}" 3>&1 1>&2 2>&3)
+
+    if [ $? -ne 0 ]; then
+        echo "Operation canceled."
+        return
+    fi
+
+    sudo virsh detach-interface "$1" bridge --mac "$selected_iface_mac" --config --live
+    log "Network interface detached from VM $1."
 }
 
 # Main menu loop
 while true; do
-    ACTION=$(whiptail --title "KVM Utility Settings" --menu "Choose an action:" 15 60 6 \
-    "1" "Create Storage Pool" \
-    "2" "Delete Storage Pool" \
-    "3" "Delete VM" \
-    "4" "VM Information" \
-    "5" "Manage Network Interfaces" \
-    "6" "Exit" 3>&1 1>&2 2>&3)
+    ACTION=$(whiptail --title "KVM Utility Settings" --menu "Choose an action:" 15 60 4 \
+    "1" "Network Management" \
+    "2" "Storage Management" \
+    "3" "VM Management" \
+    "4" "Exit" 3>&1 1>&2 2>&3)
+
+    if [ $? -ne 0 ]; then
+        log "Main menu canceled."
+        echo "Main menu canceled."
+        exit 0
+    fi
 
     case "$ACTION" in
-        1) create_pool ;;
-        2) delete_pool ;;
-        3) delete_vm ;;
-        4) vm_information ;;
-        5) manage_network_interface ;;
-        6) exit ;;
+        1)
+            NETWORK_ACTION=$(whiptail --title "Network Management" --menu "Choose an action:" 15 60 5 \
+            "1" "Create Network Bridge" \
+            "2" "Create Virtual Network (vnet)" \
+            "3" "Edit virbr0 to match host network" \
+            "4" "Delete Network Interface" \
+            "5" "Back" 3>&1 1>&2 2>&3)
+
+            case "$NETWORK_ACTION" in
+                1) create_bridge ;;
+                2) create_vnet ;;
+                3) edit_virbr0_network ;;
+                4) delete_network_interface ;;
+                5) continue ;;
+                *) echo "Invalid option." ;;
+            esac
+        ;;
+        2)
+            STORAGE_ACTION=$(whiptail --title "Storage Management" --menu "Choose an action:" 15 60 3 \
+            "1" "Create Storage Pool" \
+            "2" "Delete Storage Pool" \
+            "3" "List Storage Pools" \
+            "4" "Back" 3>&1 1>&2 2>&3)
+
+            case "$STORAGE_ACTION" in
+                1) create_pool ;;
+                2) delete_pool ;;
+                3) list_storage_pools ;;
+                4) continue ;;
+                *) echo "Invalid option." ;;
+            esac
+        ;;
+        3) manage_vm ;;
+        4) exit 0 ;;
         *) echo "Invalid option." ;;
     esac
 done
