@@ -234,25 +234,25 @@ delete_network_interface() {
 attach_network_interface() {
     selected_vm="$1"
 
-    available_bridges=$(sudo virsh net-list --all | awk 'NR>2 {print $1}')
-    if [ -z "$available_bridges" ]; then
-        whiptail --title "Error" --msgbox "No available bridges." 10 60
+    available_devices=$(ip link show | grep -E '^[0-9]+: ' | awk -F: '{print $2}' | xargs)
+    if [ -z "$available_devices" ]; then
+        whiptail --title "Error" --msgbox "No network devices found." 10 60
         return
     fi
 
-    bridge_options=()
-    for bridge in $available_bridges; do
-        bridge_options+=("$bridge" "$bridge")
+    device_options=()
+    for device in $available_devices; do
+        device_options+=("$device" "$device")
     done
 
-    selected_bridge=$(whiptail --title "Attach Network Interface" --menu "Select a bridge to attach:" 15 60 5 "${bridge_options[@]}" 3>&1 1>&2 2>&3)
-    if [ $? -ne 0 ] || [ -z "$selected_bridge" ]; then
+    selected_device=$(whiptail --title "Attach Network Interface" --menu "Select a device to attach:" 15 60 5 "${device_options[@]}" 3>&1 1>&2 2>&3)
+    if [ $? -ne 0 ] || [ -z "$selected_device" ]; then
         return
     fi
 
-    sudo virsh attach-interface --domain "$selected_vm" --type bridge --source "$selected_bridge" --model virtio --config --live
-    whiptail --title "Success" --msgbox "Interface attached to VM $selected_vm using bridge $selected_bridge." 10 60
-    log "Interface attached to VM $selected_vm using bridge $selected_bridge."
+    sudo virsh attach-interface --domain "$selected_vm" --type bridge --source "$selected_device" --model virtio --config --live
+    whiptail --title "Success" --msgbox "Interface attached to VM $selected_vm using device $selected_device." 10 60
+    log "Interface attached to VM $selected_vm using device $selected_device."
 }
 
 # Function to detach a network interface from a VM
